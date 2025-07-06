@@ -23,8 +23,6 @@ if BsCore:
 		os.chdir(BsRoot)
 else:
 	BsRoot = os.getcwd()
-LibDir = "libs.zip"
-sys.path.insert(0, LibDir)
 
 from enconf import *
 
