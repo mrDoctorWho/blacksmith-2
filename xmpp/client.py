@@ -21,518 +21,354 @@ examples of xmpppy structures usage.
 These classes can be used for simple applications "AS IS" though.
 """
 
-from . import debug as DebugModule # Renamed debug to DebugModule to avoid conflict with Debugger class
-from . import transports
-from . import dispatcher
-from . import auth
-from . import roster
+import debug
+import transports
+import dispatcher
+import auth
+import roster
 
-from .plugin import PlugIn
+from plugin import PlugIn
 
-# Assuming DebugModule.Debugger is the intended class
-# And color constants are from DebugModule
-DebugModule.Debugger.colors["socket"] = DebugModule.COLOR_DARK_GRAY
-DebugModule.Debugger.colors["CONNECTproxy"] = DebugModule.COLOR_DARK_GRAY # Typo CONNECTproxy -> CONNECT_PROXY
-DebugModule.Debugger.colors["nodebuilder"] = DebugModule.COLOR_BROWN
-DebugModule.Debugger.colors["client"] = DebugModule.COLOR_CYAN
-DebugModule.Debugger.colors["component"] = DebugModule.COLOR_CYAN
-DebugModule.Debugger.colors["dispatcher"] = DebugModule.COLOR_GREEN
-DebugModule.Debugger.colors["browser"] = DebugModule.COLOR_BLUE
-DebugModule.Debugger.colors["auth"] = DebugModule.COLOR_YELLOW
-DebugModule.Debugger.colors["roster"] = DebugModule.COLOR_MAGENTA
-DebugModule.Debugger.colors["ibb"] = DebugModule.COLOR_YELLOW
-DebugModule.Debugger.colors["down"] = DebugModule.COLOR_BROWN
-DebugModule.Debugger.colors["up"] = DebugModule.COLOR_BROWN
-DebugModule.Debugger.colors["data"] = DebugModule.COLOR_BROWN
-DebugModule.Debugger.colors["ok"] = DebugModule.COLOR_GREEN
-DebugModule.Debugger.colors["warn"] = DebugModule.COLOR_YELLOW
-DebugModule.Debugger.colors["error"] = DebugModule.COLOR_RED
-DebugModule.Debugger.colors["start"] = DebugModule.COLOR_DARK_GRAY
-DebugModule.Debugger.colors["stop"] = DebugModule.COLOR_DARK_GRAY
-DebugModule.Debugger.colors["sent"] = DebugModule.COLOR_YELLOW
-DebugModule.Debugger.colors["got"] = DebugModule.COLOR_BRIGHT_CYAN
+Debug = debug
+Debug.DEBUGGING_IS_ON = 1
 
-DEBUG_SCOPE_CLIENT = "client" # Renamed DBG_CLIENT
-DEBUG_SCOPE_COMPONENT = "component" # Renamed DBG_COMPONENT
+Debug.Debug.colors["socket"] = debug.color_dark_gray
+Debug.Debug.colors["CONNECTproxy"] = debug.color_dark_gray
+Debug.Debug.colors["nodebuilder"] = debug.color_brown
+Debug.Debug.colors["client"] = debug.color_cyan
+Debug.Debug.colors["component"] = debug.color_cyan
+Debug.Debug.colors["dispatcher"] = debug.color_green
+Debug.Debug.colors["browser"] = debug.color_blue
+Debug.Debug.colors["auth"] = debug.color_yellow
+Debug.Debug.colors["roster"] = debug.color_magenta
+Debug.Debug.colors["ibb"] = debug.color_yellow
+Debug.Debug.colors["down"] = debug.color_brown
+Debug.Debug.colors["up"] = debug.color_brown
+Debug.Debug.colors["data"] = debug.color_brown
+Debug.Debug.colors["ok"] = debug.color_green
+Debug.Debug.colors["warn"] = debug.color_yellow
+Debug.Debug.colors["error"] = debug.color_red
+Debug.Debug.colors["start"] = debug.color_dark_gray
+Debug.Debug.colors["stop"] = debug.color_dark_gray
+Debug.Debug.colors["sent"] = debug.color_yellow
+Debug.Debug.colors["got"] = debug.color_bright_cyan
+
+DBG_CLIENT = "client"
+DBG_COMPONENT = "component"
 
 
-class BaseClient(object): # Renamed CommonClient
+class CommonClient:
 	"""
-	Base for XMPPClient and XMPPComponent classes.
+	Base for Client and Component classes.
 	"""
-	def __init__(self, server_host, server_port=5222, debug_scope_list=None): # Renamed params
+	def __init__(self, server, port=5222, debug=["always", "nodebuilder"]):
 		"""
-		Caches server name and (optionally) port to connect to. "debug_scope_list" parameter specifies
+		Caches server name and (optionally) port to connect to. "debug" parameter specifies
 		the debug IDs that will go into debug output. You can either specifiy an "include"
 		or "exclude" list. The latter is done via adding "always" pseudo-ID to the list.
 		Full list: ["nodebuilder", "dispatcher", "gen_auth", "SASL_auth", "bind", "socket",
-		"CONNECT_PROXY", "TLS", "roster", "browser", "ibb"].
+		"CONNECTproxy", "TLS", "roster", "browser", "ibb"].
 		"""
-		if isinstance(self, XMPPClient): # Use new class name
-			self.stanza_namespace, self.debug_scope_name = auth.NS_CLIENT, DEBUG_SCOPE_CLIENT # Use new name
-		elif isinstance(self, XMPPComponent): # Use new class name
-			self.stanza_namespace, self.debug_scope_name = dispatcher.NS_COMPONENT_ACCEPT, DEBUG_SCOPE_COMPONENT # Use new name
-
-		self.default_stanza_namespace = self.stanza_namespace # Renamed defaultNamespace
+		if isinstance(self, Client):
+			self.Namespace, self.DBG = "jabber:client", DBG_CLIENT
+		elif isinstance(self, Component):
+			self.Namespace, self.DBG = dispatcher.NS_COMPONENT_ACCEPT, DBG_COMPONENT
+		self.defaultNamespace = self.Namespace
 		self.disconnect_handlers = []
-		self.server_host = server_host # Renamed Server
-		self.server_port = server_port # Renamed Port
+		self.Server = server
+		self.Port = port
+		if debug and not isinstance(debug, list):
+			debug = ["always", "nodebuilder"]
+		self._DEBUG = Debug.Debug(debug)
+		self.DEBUG = self._DEBUG.Show
+		self.debug_flags = self._DEBUG.debug_flags
+		self.debug_flags.append(self.DBG)
+		self._owner = self
+		self._registered_name = None
+		self.RegisterDisconnectHandler(self.DisconnectHandler)
+		self.connected = ""
+		self._route = 0
 
-		if debug_scope_list and not isinstance(debug_scope_list, list):
-			# Default debug if not a list (original had ["always", "nodebuilder"])
-			debug_scope_list = [DebugModule.DBG_ALWAYS, "nodebuilder"]
-		elif not debug_scope_list: # If None or empty list
-		    debug_scope_list = []
-
-
-		self._debugger = DebugModule.Debugger(active_flags=debug_scope_list) # Renamed _DEBUG
-		self.DEBUG = self._debugger.show_formatted_message # Renamed Show
-		# self.debug_flags should refer to the list within the debugger instance
-		# self.debug_flags = self._debugger.debug_flags # This was incorrect; debug_flags is an attribute of Debugger, not a list to append to here
-		# The Debugger class itself should handle its own debug_flags.
-		# If self.debug_scope_name needs to be added to the Debugger's known flags, that should happen in Debugger.
-		# For now, assuming Debugger handles its flags internally based on active_flags.
-
-		self._owner = self # This is a common pattern for plugins to reference their parent
-		self._registered_jid_str = None # Renamed _registered_name
-		self.register_disconnect_handler(self._default_disconnect_handler) # Use new name
-		self.connection_status = "" # Renamed connected
-		self.enable_routing_logic = False # Renamed _route (assuming boolean)
-
-	def register_disconnect_handler(self, handler_func): # Renamed RegisterDisconnectHandler, handler
+	def RegisterDisconnectHandler(self, handler):
 		"""
 		Register handler that will be called on disconnect.
 		"""
-		self.disconnect_handlers.append(handler_func)
+		self.disconnect_handlers.append(handler)
 
-	def unregister_disconnect_handler(self, handler_func): # Renamed UnregisterDisconnectHandler, handler
+	def UnregisterDisconnectHandler(self, handler):
 		"""
 		Unregister handler that is called on disconnect.
 		"""
-		self.disconnect_handlers.remove(handler_func)
+		self.disconnect_handlers.remove(handler)
 
-	def _handle_disconnection(self): # Renamed disconnected
+	def disconnected(self):
 		"""
 		Called on disconnection. Calls disconnect handlers and cleans things up.
 		"""
-		self.connection_status = ""
-		self.DEBUG(self.debug_scope_name, "Disconnect detected", "stop")
-		# Iterate in reverse for calling, but original list order is preserved
-		for handler_func in reversed(self.disconnect_handlers): # Renamed dhnd
-			handler_func()
-		# No need to reverse again if we iterate over a reversed copy
+		self.connected = ""
+		self.DEBUG(self.DBG, "Disconnect detected", "stop")
+		self.disconnect_handlers.reverse()
+		for dhnd in self.disconnect_handlers:
+			dhnd()
+		self.disconnect_handlers.reverse()
+		if self.__dict__.has_key("TLS"):
+			self.TLS.PlugOut()
 
-		if hasattr(self, "TLS") and self.TLS: # Check if TLS plugin exists
-			self.TLS.PlugOut() # TLS should be an instance of a TLS plugin class
-
-	def _default_disconnect_handler(self): # Renamed DisconnectHandler
+	def DisconnectHandler(self):
 		"""
 		Default disconnect handler. Just raises an IOError.
+		If you choosed to use this class in your production client,
+		override this method or at least unregister it.
 		"""
-		raise IOError("Disconnected from server!")
+		raise IOError("Disconnected!")
 
-	def event(self, event_name_str, event_args_dict={}): # Renamed eventName, args
+	def event(self, eventName, args={}):
 		"""
 		Default event handler. To be overriden.
 		"""
-		print_colored(f"Event: {event_name_str} - {event_args_dict}", DebugModule.COLOR_YELLOW) # Use print_colored
+		print("Event: %s-%s" % (eventName, args))
 
-	def is_connected(self): # Renamed isConnected
+	def isConnected(self):
 		"""
-		Returns connection state. F.e.: None / "tls" / "tcp+old_auth" .
+		Returns connection state. F.e.: None / "tls" / "tcp+non_sasl" .
 		"""
-		return self.connection_status
+		return self.connected
 
-	def reconnect_and_reauthenticate(self, handlers_to_save=None): # Renamed reconnectAndReauth
+	def reconnectAndReauth(self, handlerssave=None):
 		"""
-		Example of reconnection method.
+		Example of reconnection method. In fact, it can be used to batch connection and auth as well.
 		"""
-		should_save_dispatcher_handlers = False # Renamed Dispatcher_
-		if handlers_to_save is None:
-			should_save_dispatcher_handlers = True
-			handlers_to_save = self.Dispatcher.dumpHandlers() # Dispatcher needs to be an attribute
-
-		# Plugin management: use hasattr to check before calling PlugOut
-		if hasattr(self, "ComponentBinder") and self.ComponentBinder: self.ComponentBinder.PlugOut()
-		if hasattr(self, "ResourceBinder") and self.ResourceBinder: self.ResourceBinder.PlugOut()
-		self.enable_routing_logic = False
-		if hasattr(self, "NonSaslAuthenticator") and self.NonSaslAuthenticator: self.NonSaslAuthenticator.PlugOut()
-		if hasattr(self, "SaslAuthenticator") and self.SaslAuthenticator: self.SaslAuthenticator.PlugOut()
-		if hasattr(self, "TLS") and self.TLS: self.TLS.PlugOut()
-
-		if should_save_dispatcher_handlers and hasattr(self, "Dispatcher") and self.Dispatcher:
+		Dispatcher_ = False
+		if not handlerssave:
+			Dispatcher_, handlerssave = True, self.Dispatcher.dumpHandlers()
+		if self.__dict__.has_key("ComponentBind"):
+			self.ComponentBind.PlugOut()
+		if self.__dict__.has_key("Bind"):
+			self.Bind.PlugOut()
+		self._route = 0
+		if self.__dict__.has_key("NonSASL"):
+			self.NonSASL.PlugOut()
+		if self.__dict__.has_key("SASL"):
+			self.SASL.PlugOut()
+		if self.__dict__.has_key("TLS"):
+			self.TLS.PlugOut()
+		if Dispatcher_:
 			self.Dispatcher.PlugOut()
-
-		# Proxy and socket plugins
-		if hasattr(self, "HTTPProxySocket") and self.HTTPProxySocket: self.HTTPProxySocket.PlugOut()
-		if hasattr(self, "TCPSocket") and self.TCPSocket: self.TCPSocket.PlugOut()
-
-		# Re-establish connection and authentication
-		# _server_host, _proxy_settings, _username, _password, _resource are assumed to be stored from previous connect/auth
-		if not self.connect(server=(self._server_host, self.server_port), proxy=self._proxy_settings): # connect needs to store these
+		if self.__dict__.has_key("HTTPPROXYsocket"):
+			self.HTTPPROXYsocket.PlugOut()
+		if self.__dict__.has_key("TCPsocket"):
+			self.TCPsocket.PlugOut()
+		if not self.connect(server=self._Server, proxy=self._Proxy):
 			return None
-		if not self.auth(self._username, self._password, self._resource_str): # auth needs to store these
+		if not self.auth(self._User, self._Password, self._Resource):
 			return None
+		self.Dispatcher.restoreHandlers(handlerssave)
+		return self.connected
 
-		if hasattr(self, "Dispatcher") and self.Dispatcher:
-			self.Dispatcher.restoreHandlers(handlers_to_save)
-		return self.connection_status
-
-	def connect(self, server_address_tuple=None, proxy_settings=None, force_ssl_tls=None, use_srv_records=False): # Renamed params
+	def connect(self, server=None, proxy=None, ssl=None, use_srv=False):
 		"""
 		Make a tcp/ip connection, protect it with tls/ssl if possible and start XMPP stream.
 		Returns None or "tcp" or "tls", depending on the result.
 		"""
-		if not server_address_tuple:
-			server_address_tuple = (self.server_host, self.server_port)
-
-		# Store for potential reconnect
-		self._server_host = server_address_tuple[0] # Assuming server_address_tuple is (host, port)
-		self._proxy_settings = proxy_settings
-
-		socket_handler = None
-		if proxy_settings:
-			socket_handler = transports.HTTPProxyConnector(proxy_settings, server_address_tuple, use_srv_records) # Renamed class, params
+		if not server:
+			server = (self.Server, self.Port)
+		if proxy:
+			sock = transports.HTTPPROXYsocket(proxy, server, use_srv)
 		else:
-			socket_handler = transports.TCPConnector(server_address_tuple, use_srv_records) # Renamed class, params
-
-		connection_established = socket_handler.PlugIn(self) # self is passed as the client/component instance
-
-		if not connection_established:
-			socket_handler.PlugOut()
+			sock = transports.TCPsocket(server, use_srv)
+		connected = sock.PlugIn(self)
+		if not connected:
+			sock.PlugOut()
 			return None
-
-		self.connection_status = "tcp"
-
-		# SSL/TLS handling (original logic was a bit mixed)
-		# force_ssl_tls: None (auto), True (force), False (disable)
-		port_for_ssl_check = self.Connection.getport() # Assuming self.Connection is set by socket_handler.PlugIn
-
-		if force_ssl_tls or (force_ssl_tls is None and port_for_ssl_check in (5223, 443)):
-			try:
-				# The TLS plugin should handle the actual TLS negotiation.
-				tls_plugin = transports.TLSConnection(self) # Pass client instance
-				tls_plugin.PlugIn(self, now=True) # now=True implies immediate attempt
-				if tls_plugin.tls_established: # Check a flag set by the TLS plugin
-					self.connection_status = "ssl" # Or "tls" depending on what TLSConnection sets
-				else: # TLS negotiation failed or not supported by server
-				    if force_ssl_tls: # If forced, then this is a failure
-				        self.DEBUG(self.debug_scope_name, "Forced TLS/SSL connection failed.", "error")
-				        socket_handler.PlugOut() # Clean up socket
-				        return None
-				    # If auto and failed, continue with non-TLS (already "tcp")
-			except transports.socket.sslerror as e: # More specific error
-				self.DEBUG(self.debug_scope_name, f"SSL/TLS error: {e}", "error")
-				socket_handler.PlugOut()
+		self._Server, self._Proxy = server, proxy
+		self.connected = "tcp"
+		if (ssl is None and self.Connection.getPort() in (5223, 443)) or ssl:
+			try: # FIXME. This should be done in transports.py
+				transports.TLS().PlugIn(self, now=1)
+				self.connected = "ssl"
+			except transports.socket.sslerror:
 				return None
-			except Exception as e: # Catch other potential errors during TLS plugin
-				self.DEBUG(self.debug_scope_name, f"Error during TLS/SSL setup: {e}", "error")
-				socket_handler.PlugOut()
+		dispatcher.Dispatcher().PlugIn(self)
+		while self.Dispatcher.Stream._document_attrs is None:
+			if not self.Process(1):
 				return None
+		if self.Dispatcher.Stream._document_attrs.has_key("version") and self.Dispatcher.Stream._document_attrs["version"] == "1.0":
+			while not self.Dispatcher.Stream.features and self.Process(1):
+				pass # If we get version 1.0 stream the features tag MUST BE presented
+		return self.connected
 
-		dispatcher.Dispatcher().PlugIn(self) # Initialize dispatcher after connection is set up
-
-		# Wait for stream header
-		timeout_counter = 100
-		while self.Dispatcher.Stream._document_attrs is None and timeout_counter > 0:
-			if not self.Process(1): # Process should return False on critical error/disconnect
-				return None
-			timeout_counter -=1
-		if self.Dispatcher.Stream._document_attrs is None:
-		    self.DEBUG(self.debug_scope_name, "Timeout waiting for stream header.", "error")
-		    return None
-
-		# Wait for stream features if XMPP 1.0
-		if "version" in self.Dispatcher.Stream._document_attrs and self.Dispatcher.Stream._document_attrs["version"] == "1.0":
-			timeout_counter = 100
-			while not self.Dispatcher.Stream.features and timeout_counter > 0:
-				if not self.Process(1): return None
-				timeout_counter -= 1
-			if not self.Dispatcher.Stream.features:
-			    self.DEBUG(self.debug_scope_name, "Timeout waiting for stream features.", "error")
-			    return None
-
-		return self.connection_status
-
-class XMPPClient(BaseClient): # Renamed Client, CommonClient
+class Client(CommonClient):
 	"""
-	Example XMPP client class.
+	Example client class, based on CommonClient.
 	"""
-	def connect(self, server_address_tuple=None, proxy_settings=None, force_ssl_tls=None, use_srv_records=True): # Renamed params
+	def connect(self, server=None, proxy=None, secure=None, use_srv=True):
 		"""
-		Connect to jabber server.
+		Connect to jabber server. If you want to specify different ip/port to connect to you can
+		pass it as tuple as first parameter. If there is HTTP proxy between you and server
+		specify it's address and credentials (if needed) in the second argument.
+		If you want ssl/tls support to be discovered and enable automatically - leave third argument as None. (ssl will be autodetected only if port is 5223 or 443)
+		If you want to force SSL start (i.e. if port 5223 or 443 is remapped to some non-standard port) then set it to 1.
+		If you want to disable tls/ssl support completely, set it to 0.
+		Example: connect(("192.168.5.5", 5222), {"host": "proxy.my.net", "port": 8080, "user": "me", "password": "secret"})
+		Returns "" or "tcp" or "tls", depending on the result.
 		"""
-		# Call BaseClient.connect which establishes basic TCP and potentially SSL (if port is 5223/443 or force_ssl_tls is True)
-		initial_connection_status = BaseClient.connect(self, server_address_tuple, proxy_settings, force_ssl_tls, use_srv_records)
-
-		if not initial_connection_status: # Base connection failed
+		if not CommonClient.connect(self, server, proxy, secure, use_srv) or secure != None and not secure:
+			return self.connected
+		transports.TLS().PlugIn(self)
+		if not hasattr(self, "Dispatcher"):
 			return None
+		if not self.Dispatcher.Stream._document_attrs.has_key("version") or not self.Dispatcher.Stream._document_attrs["version"] == "1.0":
+			return self.connected
+		while not self.Dispatcher.Stream.features and self.Process(1):
+			pass # If we get version 1.0 stream the features tag MUST BE presented
+		if not self.Dispatcher.Stream.features.getTag("starttls"):
+			return self.connected # TLS not supported by server
+		while not self.TLS.starttls and self.Process(1):
+			pass
+		if not hasattr(self, "TLS") or self.TLS.starttls != "success":
+			self.event("tls_failed"); return self.connected
+		self.connected = "tls"
+		return self.connected
 
-		# If force_ssl_tls was False, or if it was None and not an SSL port, we don't attempt STARTTLS.
-		if force_ssl_tls is False:
-			return self.connection_status
-
-		# If already SSL (e.g. port 5223), STARTTLS is not applicable.
-		if self.connection_status == "ssl":
-			return self.connection_status
-
-		# At this point, connection is "tcp". Check for STARTTLS feature.
-		# The Dispatcher and Stream features should be populated by BaseClient.connect
-		if not hasattr(self, "Dispatcher") or not self.Dispatcher.Stream.features:
-			self.DEBUG(self.debug_scope_name, "No stream features found, cannot initiate STARTTLS.", "warn")
-			return self.connection_status # Return current status ("tcp")
-
-		tls_plugin = transports.TLSConnection(self) # Pass client instance
-		tls_plugin.PlugIn(self) # Register feature handler for STARTTLS
-
-		# Process messages to allow feature negotiation for STARTTLS
-		# The TLS plugin's feature handler will initiate STARTTLS if available.
-		timeout_counter = 100 # Wait for STARTTLS negotiation
-		# TLS.starttls_initiated and TLS.tls_established would be flags set by the TLS plugin
-		while hasattr(self, "TLS") and self.TLS and not self.TLS.tls_established and self.TLS.starttls_status != "failed" and timeout_counter > 0:
-			if not self.Process(1): # If Process returns False, connection might have dropped
-				self.DEBUG(self.debug_scope_name, "Connection lost during STARTTLS negotiation.", "error")
-				return None # Or self.connection_status which would be "tcp"
-			timeout_counter -= 1
-
-		if hasattr(self, "TLS") and self.TLS and self.TLS.tls_established:
-			self.connection_status = "tls" # Update status after successful STARTTLS
-		elif hasattr(self, "TLS") and self.TLS and self.TLS.starttls_status == "failed":
-			self.event("tls_failed") # Fire event if TLS explicitly failed
-			# Continue with "tcp" if STARTTLS failed but was optional.
-			# If STARTTLS was mandatory by server policy (not checked here), this might be an issue.
-		elif timeout_counter == 0:
-			self.DEBUG(self.debug_scope_name, "Timeout waiting for STARTTLS.", "warn")
-
-		return self.connection_status
-
-
-	def auth(self, username_str, password_str, resource_str="", use_sasl=True): # Renamed user, password, resource, sasl
+	def auth(self, user, password, resource="", sasl=1):
 		"""
-		Authenticate connnection and bind resource.
+		Authenticate connnection and bind resource. If resource is not provided
+		random one or library name used.
 		"""
-		self._username = username_str
-		self._password = password_str
-		self._resource_str = resource_str
-
-		# Wait for stream features if not already present (e.g., after STARTTLS)
-		timeout_counter = 100
-		while not (hasattr(self, "Dispatcher") and self.Dispatcher.Stream.features) and timeout_counter > 0:
-			if not self.Process(1): return None # Connection lost
-			timeout_counter -=1
-		if not (hasattr(self, "Dispatcher") and self.Dispatcher.Stream.features):
-		    self.DEBUG(self.debug_scope_name, "Stream features not available for authentication.", "error")
-		    return None
-
-		if use_sasl:
-			sasl_authenticator = auth.SaslAuthenticator(username_str, password_str) # Use new class name
-			sasl_authenticator.PlugIn(self) # This will check features and register handlers
-			sasl_authenticator.auth() # This will initiate SASL if features allow
-
-			timeout_counter = 200 # Increased timeout for SASL potentially multiple steps
-			while sasl_authenticator.sasl_status == "in-process" and timeout_counter > 0:
-				if not self.Process(1): return None # Connection lost
-				timeout_counter -=1
-
-			if sasl_authenticator.sasl_status == "success":
-				resource_binder = auth.ResourceBinder() # Use new class name
-				resource_binder.PlugIn(self)
-				# Wait for bind features to be processed by ResourceBinder
-				bind_timeout_counter = 100
-				while resource_binder.binding_status is None and bind_timeout_counter > 0:
-				    if not self.Process(1): return None
-				    bind_timeout_counter -= 1
-
-				if resource_binder.binding_status == "failure" or resource_binder.binding_status is None:
-				    self.DEBUG(self.debug_scope_name, "Resource binding not offered or failed after SASL.", "error")
-				    sasl_authenticator.PlugOut()
-				    return None
-
-				bind_result = resource_binder.bind_resource(resource_str) # Use new name
-				if bind_result and "ok" in bind_result: # e.g. "ok" or "bind_ok_session_failed"
-					self.connection_status += "+sasl"
-					return "sasl_bind_ok" # More descriptive success
-				else:
-				    self.DEBUG(self.debug_scope_name, f"SASL OK, but Resource Binding failed: {bind_result}", "error")
-			elif sasl_authenticator.sasl_status == "not-supported" and not resource_str: # Fallback to NonSASL if SASL not supported by server AND no resource given for NonSASL client auth
-			    self.DEBUG(self.debug_scope_name, "SASL not supported by server, attempting Non-SASL (but resource is required for client Non-SASL).", "warn")
-			    # NonSASL client auth requires a resource. If not provided, it's an issue.
-			    # This path is tricky, as NonSASL for clients is different from components.
-			    # The original code might have implicitly handled this by resource defaulting.
-			    # For clarity, if resource_str is empty here for NonSASL client auth, it should likely fail or use a default.
-			    # Let's assume for now if resource_str is empty, NonSASL client auth isn't viable.
-			    if not resource_str:
-			        self.DEBUG(self.debug_scope_name, "Non-SASL client auth requires a resource. None provided.", "error")
-			        sasl_authenticator.PlugOut()
-			        return None
-
-			# Fallback to NonSASL if SASL failed or not supported (and resource is available)
-			if sasl_authenticator.sasl_status != "success": # Covers "failure" and "not-supported" if resource is present
-				if not resource_str: resource_str = "xmpppy" # Default resource for NonSASL
-				non_sasl_authenticator = auth.NonSaslAuthenticator(username_str, password_str, resource_str) # Use new class name
-				if non_sasl_authenticator.PlugIn(self): # This calls plugin() which does the auth
-					self.connection_status += "+old_auth"
-					if hasattr(self,"SASL") and self.SASL: self.SASL.PlugOut() # Clean up SASL if it was attempted
-					return "old_auth"
-
-			if hasattr(self,"SASL") and self.SASL: self.SASL.PlugOut() # Ensure SASL is plugged out if not successful
-			return None # Auth failed overall
-
-		else: # Not using SASL, try NonSASL directly
-			if not resource_str: resource_str = "xmpppy" # Default resource
-			non_sasl_authenticator = auth.NonSaslAuthenticator(username_str, password_str, resource_str)
-			if non_sasl_authenticator.PlugIn(self):
-				self.connection_status += "+old_auth"
+		self._User, self._Password, self._Resource = user, password, resource
+		while not self.Dispatcher.Stream._document_attrs and self.Process(1):
+			pass
+		if self.Dispatcher.Stream._document_attrs.has_key("version") and self.Dispatcher.Stream._document_attrs["version"] == "1.0":
+			while not self.Dispatcher.Stream.features and self.Process(1):
+				pass # If we get version 1.0 stream the features tag MUST BE presented
+		if sasl:
+			auth.SASL(user, password).PlugIn(self)
+		if not sasl or self.SASL.startsasl == "not-supported":
+			if not resource:
+				resource = "xmpppy"
+			if auth.NonSASL(user, password, resource).PlugIn(self):
+				self.connected += "+old_auth"
 				return "old_auth"
 			return None
+		self.SASL.auth()
+		while self.SASL.startsasl == "in-process" and self.Process(1):
+			pass
+		if self.SASL.startsasl == "success":
+			auth.Bind().PlugIn(self)
+			while self.Bind.bound is None and self.Process(1):
+				pass
+			if self.Bind.Bind(resource):
+				self.connected += "+sasl"
+				return "sasl"
+		elif self.__dict__.has_key("SASL"):
+			self.SASL.PlugOut()
 
-
-	def get_roster(self): # Renamed getRoster
+	def getRoster(self):
 		"""
 		Return the Roster instance, previously plugging it in and
 		requesting roster from server if needed.
 		"""
-		if not hasattr(self, "RosterManager"): # Assuming Roster class is RosterManager
-			roster_manager_instance = roster.RosterManager() # Use new name
-			roster_manager_instance.PlugIn(self)
-			self.RosterManager = roster_manager_instance # Store it
-		# getRoster method of RosterManager should fetch if not already fetched
-		return self.RosterManager.get_roster_nodes() # Assuming RosterManager has get_roster_nodes
+		if not self.__dict__.has_key("Roster"):
+			roster.Roster().PlugIn(self)
+		return self.Roster.getRoster()
 
-	def send_initial_presence(self, request_roster_on_presence=True): # Renamed sendInitPresence, requestRoster
+	def sendInitPresence(self, requestRoster=1):
 		"""
 		Send roster request and initial <presence/>.
+		You can disable the first by setting requestRoster argument to 0.
 		"""
-		self.send_presence(request_roster=request_roster_on_presence) # Use new name
+		self.sendPresence(requestRoster=requestRoster)
 
-	def send_presence(self, to_jid=None, presence_type=None, request_roster=False): # Renamed sendPresence, jid, typ, requestRoster
+	def sendPresence(self, jid=None, typ=None, requestRoster=0):
 		"""
 		Send some specific presence state.
+		Can also request roster from server if according agrument is set.
 		"""
-		if request_roster:
-			if not hasattr(self, "RosterManager"):
-				roster_manager_instance = roster.RosterManager()
-				roster_manager_instance.PlugIn(self)
-				self.RosterManager = roster_manager_instance
-			self.RosterManager.request_roster() # Explicitly request roster
-		# Presence class will be renamed
-		self.send(Presence(to_jid=to_jid, stanza_type=presence_type))
+		if requestRoster:
+			roster.Roster().PlugIn(self)
+		self.send(dispatcher.Presence(to=jid, typ=typ))
 
-
-class XMPPComponent(BaseClient): # Renamed Component, CommonClient
+class Component(CommonClient):
 	"""
-	XMPP Component class.
+	Component class. The only difference from CommonClient is ability to perform component authentication.
 	"""
-	def __init__(self, component_jid_or_domain, server_port=5347, server_type=None, debug_scope_list=None, additional_domains=None, use_sasl_bool=False, enable_routing=False, use_xcp=False): # Renamed params
-		BaseClient.__init__(self, component_jid_or_domain, server_port=server_port, debug_scope_list=debug_scope_list)
-		self.server_type = server_type
-		self.use_sasl = use_sasl_bool # Renamed sasl
-		self.enable_binding = enable_routing # Renamed bind to enable_binding, route to enable_routing
-		self.use_xcp_features = use_xcp # Renamed xcp
-		if additional_domains:
-			self.additional_domains = additional_domains
+	def __init__(self, transport, port=5347, typ=None, debug=["always", "nodebuilder"], domains=None, sasl=0, bind=0, route=0, xcp=0):
+		"""
+		Init function for Components.
+		As components use a different auth mechanism which includes the namespace of the component.
+		Jabberd1.4 and Ejabberd use the default namespace then for all client messages.
+		Jabberd2 uses jabber:client.
+		"transport" argument is a transport name that you are going to serve (f.e. "irc.localhost").
+		"port" can be specified if "transport" resolves to correct IP. If it is not then you'll have to specify IP
+		and port while calling "connect()".
+		If you are going to serve several different domains with single Component instance - you must list them ALL
+		in the "domains" argument.
+		For jabberd2 servers you should set typ="jabberd2" argument.
+		"""
+		CommonClient.__init__(self, transport, port=port, debug=debug)
+		self.typ = typ
+		self.sasl = sasl
+		self.bind = bind
+		self.route = route
+		self.xcp = xcp
+		if domains:
+			self.domains = domains
 		else:
-			self.additional_domains = [component_jid_or_domain] # If only one domain, it's the primary one
+			self.domains = [transport]
 
-	def connect(self, server_address_tuple=None, proxy_settings=None): # Renamed params
+	def connect(self, server=None, proxy=None):
 		"""
-		Connects the component to the server.
+		This will connect to the server, and if the features tag is found then set
+		the namespace to be jabber:client as that is required for jabberd2.
+		"server" and "proxy" arguments have the same meaning as in xmpp.Client.connect().
 		"""
-		# Component connections typically don't use SRV or SSL/TLS in the same way clients do.
-		# The `secure` parameter from Client.connect is not present here.
-		if BaseClient.connect(self, server_address_tuple=server_address_tuple, proxy_settings=proxy_settings, force_ssl_tls=False, use_srv_records=False): # force_ssl_tls=False for components unless specified
-			if self.connection_status and \
-			   (self.server_type == "jabberd2" or (not self.server_type and self.Dispatcher.Stream.features is not None)) and \
-			   (not self.use_xcp_features):
-				self.default_stanza_namespace = auth.NS_CLIENT # Default to client namespace for stanzas after connect for some servers
-				self.Dispatcher.RegisterNamespace(self.default_stanza_namespace)
-				# Re-register protocols if namespace changes. This assumes Dispatcher handles this.
-				self.Dispatcher.RegisterProtocol("iq", Iq) # Iq will be IqStanza
-				self.Dispatcher.RegisterProtocol("message", Message) # Message will be MessageStanza
-				self.Dispatcher.RegisterProtocol("presence", Presence) # Presence will be PresenceStanza
-			return self.connection_status
-		return None
+		if self.sasl:
+			self.Namespace = auth.NS_COMPONENT_1
+			self.Server = server[0]
+		CommonClient.connect(self, server=server, proxy=proxy)
+		if self.connected and (self.typ == "jabberd2" or not self.typ and self.Dispatcher.Stream.features != None) and (not self.xcp):
+			self.defaultNamespace = auth.NS_CLIENT
+			self.Dispatcher.RegisterNamespace(self.defaultNamespace)
+			self.Dispatcher.RegisterProtocol("iq", dispatcher.Iq)
+			self.Dispatcher.RegisterProtocol("message", dispatcher.Message)
+			self.Dispatcher.RegisterProtocol("presence", dispatcher.Presence)
+		return self.connected
 
-
-	def _perform_component_bind(self, sasl_negotiated_bool): # Renamed dobind, sasl
+	def dobind(self, sasl):
 		# This has to be done before binding, because we can receive a route stanza before binding finishes
-		self.enable_routing_logic = self.enable_routing # Use the instance attribute
-		if self.enable_binding: # Use new name
-			for domain_str in self.additional_domains: # Renamed domains
-				binder_plugin = auth.ComponentBinder(sasl_negotiated_bool) # Use new class name
-				binder_plugin.PlugIn(self)
-				# Wait for binding status to be ready (e.g. features processed if applicable)
-				timeout_counter = 100
-				while binder_plugin.binding_status is None and timeout_counter > 0:
-					if not self.Process(1): return None # Connection lost
-					timeout_counter -=1
-
-				if binder_plugin.binding_status == "failure" or binder_plugin.binding_status is None:
-				    self.DEBUG(self.debug_scope_name, f"Component binding not offered or failed for {domain_str}", "error")
-				    binder_plugin.PlugOut()
-				    return None
-
-				bind_attempt_result = binder_plugin.bind_component(domain_str) # Use new name
-				binder_plugin.PlugOut() # Clean up plugin after attempt
-				if not bind_attempt_result or bind_attempt_result == "failure" or bind_attempt_result == "timeout":
-					return None # Binding failed for this domain
-			return "ok" # All domains bound successfully
-		return "ok" # Binding not enabled, so considered successful in this context
-
-	def auth(self, component_name_str, component_password_str): # Renamed name, password, removed dup
-		"""
-		Authenticate component.
-		"""
-		self._username = component_name_str # Store for potential re-auth logic
-		self._password = component_password_str
-		self._resource_str = "" # Components don't have resources in the client sense
-
-		try:
-			if self.use_sasl:
-				sasl_auth_instance = auth.SaslAuthenticator(component_name_str, component_password_str) # Use new name
-				sasl_auth_instance.PlugIn(self)
-				sasl_auth_instance.auth() # Attempt SASL
-
-				timeout_counter = 100
-				while sasl_auth_instance.sasl_status == "in-process" and timeout_counter > 0:
-					if not self.Process(1): return None # Connection lost
-					timeout_counter -=1
-
-				if sasl_auth_instance.sasl_status == "success":
-					if self._perform_component_bind(sasl_negotiated_bool=True): # Use new name
-						self.connection_status += "+sasl_bind" # More specific status
-						return "sasl_component_auth_ok"
-					else:
-						self.DEBUG(self.debug_scope_name, "SASL auth OK, but component binding failed.", "error")
-						return None
-				elif sasl_auth_instance.sasl_status == "not-supported":
-				    self.DEBUG(self.debug_scope_name, "SASL not supported by server, trying Non-SASL component handshake.", "warn")
-				    # Fall through to NonSASL if SASL is not supported
-				else: # SASL failed for other reasons
-				    self.DEBUG(self.debug_scope_name, f"SASL authentication failed: {sasl_auth_instance.sasl_status}", "error")
-				    return None
-
-			# Non-SASL / Component Handshake (either as fallback or primary if use_sasl is false)
-			non_sasl_auth_instance = auth.NonSaslAuthenticator(component_name_str, component_password_str, resource_str="") # Use new name
-			auth_result = non_sasl_auth_instance.authenticate_as_component(self) # Use new name, pass self
-
-			if auth_result == "ok":
-				if self._perform_component_bind(sasl_negotiated_bool=False): # Use new name
-					self.connection_status += "+component_handshake_bind"
-					return "component_handshake_ok"
-				else:
-					self.DEBUG(self.debug_scope_name, "Component handshake OK, but binding failed.", "error")
+		self._route = self.route
+		if self.bind:
+			for domain in self.domains:
+				auth.ComponentBind(sasl).PlugIn(self)
+				while self.ComponentBind.bound is None:
+					self.Process(1)
+				if (not self.ComponentBind.Bind(domain)):
+					self.ComponentBind.PlugOut()
 					return None
-			else:
-				self.DEBUG(self.debug_scope_name, f"Component handshake authentication failed: {auth_result}", "error")
-				return None
+				self.ComponentBind.PlugOut()
 
-		except Exception as e:
-			self.DEBUG(self.debug_scope_name, f"Failed to authenticate component {component_name_str}: {e}", "error")
-			# Log the full exception for more details if possible
-			self._debugger.show_formatted_message(self.debug_scope_name, f"Exception during auth: {e}", "error_exception")
-			return None
-		finally: # Ensure plugins are cleaned up if they were instantiated
-		    if hasattr(self, "SaslAuthenticator") and self.SaslAuthenticator: self.SaslAuthenticator.PlugOut()
-		    if hasattr(self, "NonSaslAuthenticator") and self.NonSaslAuthenticator: self.NonSaslAuthenticator.PlugOut()
-		    if hasattr(self, "ComponentBinder") and self.ComponentBinder : self.ComponentBinder.PlugOut()
+	def auth(self, name, password, dup=None):
+		"""
+		Authenticate component "name" with password "password".
+		"""
+		self._User, self._Password, self._Resource = name, password, ""
+		try:
+			if self.sasl:
+				auth.SASL(name, password).PlugIn(self)
+			if not self.sasl or self.SASL.startsasl == "not-supported":
+				if auth.NonSASL(name, password, "").PlugIn(self):
+					self.dobind(sasl=False)
+					self.connected += "+old_auth"
+					return "old_auth"
+				return None
+			self.SASL.auth()
+			while self.SASL.startsasl == "in-process" and self.Process(1):
+				pass
+			if self.SASL.startsasl == "success":
+				self.dobind(sasl=True)
+				self.connected += "+sasl"
+				return "sasl"
+			else:
+				raise auth.NotAuthorized(self.SASL.startsasl)
+		except Exception:
+			self.DEBUG(self.DBG, "Failed to authenticate %s" % name, "error")

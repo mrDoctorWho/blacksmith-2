@@ -15,443 +15,434 @@
 # $Id: commands.py, v1.18 2013/11/05 alkorgun Exp $
 
 """
-This module is an ad-hoc command processor for xmpppy. It uses the plug-in mechanism.
+This module is a ad-hoc command processor for xmpppy. It uses the plug-in mechanism like most of the core library.
 It depends on a DISCO browser manager.
+
+There are 3 classes here, a command processor Commands like the Browser,
+and a command template plugin Command, and an example command.
+
+To use this module:
+
+	Instansiate the module with the parent transport and disco browser manager as parameters.
+	"Plug in" commands using the command template.
+	The command feature must be added to existing disco replies where neccessary.
+
+What it supplies:
+
+	Automatic command registration with the disco browser manager.
+	Automatic listing of commands in the public command list.
+	A means of handling requests, by redirection though the command manager.
 """
 
-from .plugin import PlugIn
-# Assuming protocol classes will be renamed (e.g., Iq->IqStanza, Error->ErrorStanza)
-from .protocol import Iq, Node, NodeProcessed, ErrorStanza, DataForm, \
-                      NS_COMMANDS, NS_DATA, \
-                      ERR_BAD_REQUEST, ERR_ITEM_NOT_FOUND, ERR_FEATURE_NOT_IMPLEMENTED
+from plugin import PlugIn
+from protocol import *
 
-# Assuming browser class will be DiscoBrowser from a refactored browser.py
-# from .browser import DiscoBrowser
-
-DEBUG_SCOPE_COMMANDS = "commands"
-
-class AdHocCommandManager(PlugIn): # Renamed Commands
+class Commands(PlugIn):
 	"""
-	Manages ad-hoc commands, integrating with a DiscoBrowser instance for discovery.
+	Commands is an ancestor of PlugIn and can be attached to any session.
+
+	The commands class provides a lookup and browse mechnism.
+	It follows the same priciple of the Browser class, for Service Discovery to provide the list of commands,
+	it adds the "list" disco type to your existing disco handler function.
+
+	How it works:
+		The commands are added into the existing Browser on the correct nodes.
+		When the command list is built the supplied discovery handler function needs to have a "list" option in type.
+		This then gets enumerated, all results returned as None are ignored.
+		The command executed is then called using it's Execute method.
+		All session management is handled by the command itself.
 	"""
-	def __init__(self, disco_browser_instance): # Renamed browser
+	def __init__(self, browser):
 		"""
-		Initialises class, storing the DiscoBrowser instance.
+		Initialises class and sets up local variables.
 		"""
 		PlugIn.__init__(self)
-		self.DEBUG_LINE_PREFIX = DEBUG_SCOPE_COMMANDS
-		self._exported_methods = [] # No methods typically exported by a manager like this
-		# _handlers: {target_jid_str: {command_node_name: {"disco": disco_handler, "execute": execute_handler}}}
-		self._handlers = {"": {}} # Default handlers for commands on the component itself
-		self._disco_browser = disco_browser_instance
+		DBG_LINE = "commands"
+		self._exported_methods = []
+		self._handlers = {"": {}}
+		self._browser = browser
 
-	def plugin(self, client_or_component_instance): # Renamed owner
+	def plugin(self, owner):
 		"""
-		Registers IQ handlers for command execution and discovery with the component's dispatcher.
+		Makes handlers within the session.
 		"""
-		# _owner is set by PlugIn base
-		self._owner.RegisterHandler("iq", self._handle_command_iq, stanza_type="set", namespace=NS_COMMANDS)
-		self._owner.RegisterHandler("iq", self._handle_command_iq, stanza_type="get", namespace=NS_COMMANDS) # Allow gets for initial step?
-		# Register this manager's disco handler with the main DiscoBrowser for the command namespace
-		self._disco_browser.set_disco_handler(self._handle_disco_query_for_commands_node, node=NS_COMMANDS, target_jid_str="")
-
+		# Plug into the session and the disco manager
+		# We only need get and set, results are not needed by a service provider, only a service user.
+		owner.RegisterHandler("iq", self._CommandHandler, typ="set", ns=NS_COMMANDS)
+		owner.RegisterHandler("iq", self._CommandHandler, typ="get", ns=NS_COMMANDS)
+		self._browser.setDiscoHandler(self._DiscoHandler, node=NS_COMMANDS, jid="")
 
 	def plugout(self):
 		"""
 		Removes handlers from the session.
 		"""
-		self._owner.UnregisterHandler("iq", self._handle_command_iq, stanza_type="set", namespace=NS_COMMANDS)
-		self._owner.UnregisterHandler("iq", self._handle_command_iq, stanza_type="get", namespace=NS_COMMANDS)
-		# Unregister from disco browser for all JIDs this manager was handling commands for
-		for jid_str in list(self._handlers.keys()): # Iterate over copy if modifying
-			self._disco_browser.delete_disco_handler(disco_node_str=NS_COMMANDS, target_jid_str=jid_str)
+		# unPlug from the session and the disco manager
+		self._owner.UnregisterHandler("iq", self._CommandHandler, ns=NS_COMMANDS)
+		for jid in self._handlers:
+			self._browser.delDiscoHandler(self._DiscoHandler, node=NS_COMMANDS)
 
-
-	def _handle_command_iq(self, dispatcher_instance, command_iq_stanza): # Renamed conn, request
+	def _CommandHandler(self, conn, request):
 		"""
-		Internal method to route command execution requests to the appropriate handler.
+		The internal method to process the routing of command execution requests.
 		"""
-		target_jid_str = str(command_iq_stanza.get_to()) # JID the command is addressed to
-		command_node = command_iq_stanza.getTag("command", namespace=NS_COMMANDS)
-
-		if not command_node:
-			dispatcher_instance.send(ErrorStanza(command_iq_stanza, ERR_BAD_REQUEST))
+		# This is the command handler itself.
+		# We must:
+		#   Pass on command execution to command handler
+		#   (Do we need to keep session details here, or can that be done in the command?)
+		jid = str(request.getTo())
+		try:
+			node = request.getTagAttr("command", "node")
+		except Exception:
+			conn.send(Error(request, ERR_BAD_REQUEST))
 			raise NodeProcessed()
-
-		command_node_name = command_node.getAttr("node")
-		if not command_node_name: # Node attribute is mandatory for specific commands
-			dispatcher_instance.send(ErrorStanza(command_iq_stanza, ERR_BAD_REQUEST("Command node attribute missing")))
-			raise NodeProcessed()
-
-		# Check for specific JID handlers first, then default "" JID
-		handler_set = self._handlers.get(target_jid_str, self._handlers.get("", {}))
-
-		if command_node_name in handler_set:
-			# Call the 'execute' method of the registered command handler object/dict
-			command_handler_entry = handler_set[command_node_name]
-			if "execute" in command_handler_entry and callable(command_handler_entry["execute"]):
-				command_handler_entry["execute"](dispatcher_instance, command_iq_stanza)
+		if self._handlers.has_key(jid):
+			if self._handlers[jid].has_key(node):
+				self._handlers[jid][node]["execute"](conn, request)
 			else:
-				self.DEBUG(f"No executable 'execute' method for command {command_node_name} on JID {target_jid_str}", "error")
-				dispatcher_instance.send(ErrorStanza(command_iq_stanza, ERR_ITEM_NOT_FOUND("Command execution handler not found")))
+				conn.send(Error(request, ERR_ITEM_NOT_FOUND))
+				raise NodeProcessed()
+		elif self._handlers[""].has_key(node):
+			self._handlers[""][node]["execute"](conn, request)
 		else:
-			dispatcher_instance.send(ErrorStanza(command_iq_stanza, ERR_ITEM_NOT_FOUND("Command not found at this JID/node")))
-		raise NodeProcessed()
-
-	def _handle_disco_query_for_commands_node(self, dispatcher_instance, disco_iq_request, disco_query_type): # Renamed conn, request, typ
-		"""
-		Internal method to process service discovery requests for the ad-hoc commands node (NS_COMMANDS).
-		"""
-		if disco_query_type == "items":
-			items_list = [] # Renamed list
-			# JID to which the disco query is addressed (could be component itself or a specific JID it handles)
-			queried_jid_str = str(disco_iq_request.get_to())
-
-			# Gather commands registered for the specific JID, or default JID if specific not found
-			specific_jid_commands = self._handlers.get(queried_jid_str, {})
-			default_jid_commands = self._handlers.get("", {})
-
-			# Combine and de-duplicate command names (node names)
-			# Prefer specific JID handlers over default ones if names clash (though unlikely with this structure)
-			all_command_nodes_for_jid = {} # {command_node_name: handler_entry}
-			all_command_nodes_for_jid.update(default_jid_commands)
-			all_command_nodes_for_jid.update(specific_jid_commands) # Specific overrides default
-
-			if all_command_nodes_for_jid:
-				for command_node_name_str, handler_entry in all_command_nodes_for_jid.items():
-					if "disco" in handler_entry and callable(handler_entry["disco"]):
-						# The 'list' type for disco handler is a custom convention here
-						# It should return a tuple: (jid_for_command, node_name, natural_name)
-						list_item_info = handler_entry["disco"](dispatcher_instance, disco_iq_request, "list")
-						if list_item_info and len(list_item_info) == 3:
-							items_list.append(Node(tag="item", attrs={"jid": list_item_info[0],
-							                                       "node": list_item_info[1],
-							                                       "name": list_item_info[2]}))
-				reply_iq = disco_iq_request.build_reply("result")
-				if disco_iq_request.get_query_node_attribute(): # Use new method name
-					reply_iq.set_query_node_attribute(disco_iq_request.get_query_node_attribute()) # Use new method name
-				reply_iq.set_query_payload(items_list) # Use new method name
-				dispatcher_instance.send(reply_iq)
-			else: # No commands found for this JID or default
-				dispatcher_instance.send(ErrorStanza(disco_iq_request, ERR_ITEM_NOT_FOUND))
+			conn.send(Error(request, ERR_ITEM_NOT_FOUND))
 			raise NodeProcessed()
 
-		elif disco_query_type == "info":
-			# This is info about the NS_COMMANDS node itself, not a specific command
+	def _DiscoHandler(self, conn, request, typ):
+		"""
+		The internal method to process service discovery requests.
+		"""
+		# This is the disco manager handler.
+		if typ == "items":
+			# We must:
+			# 	Generate a list of commands and return the list
+			# 	* This handler does not handle individual commands disco requests.
+			# Pseudo:
+			#   Enumerate the "item" disco of each command for the specified jid
+			#   Build responce and send
+			#   To make this code easy to write we add an "list" disco type, it returns a tuple or "none" if not advertised
+			list = []
+			items = []
+			jid = str(request.getTo())
+			# Get specific jid based results
+			if self._handlers.has_key(jid):
+				for each in self._handlers[jid].keys():
+					items.append((jid, each))
+			else:
+				# Get generic results
+				for each in self._handlers[""].keys():
+					items.append(("", each))
+			if items:
+				for each in items:
+					i = self._handlers[each[0]][each[1]]["disco"](conn, request, "list")
+					if i != None:
+						list.append(Node(tag="item", attrs={"jid": i[0], "node": i[1], "name": i[2]}))
+				iq = request.buildReply("result")
+				if request.getQuerynode():
+					iq.setQuerynode(request.getQuerynode())
+				iq.setQueryPayload(list)
+				conn.send(iq)
+			else:
+				conn.send(Error(request, ERR_ITEM_NOT_FOUND))
+			raise NodeProcessed()
+		if typ == "info":
 			return {
-				"ids": [{"category": "automation", "type": "command-list", "name": "Ad-Hoc Commands"}],
-				"features": [NS_COMMANDS] # It supports the command namespace
+				"ids": [{"category": "automation", "type": "command-list"}],
+				"features": []
 			}
-		return None # Should not happen for items/info
 
-	def add_command(self, command_node_name_str, disco_handler_func, execute_handler_func, target_jid_str=""): # Renamed params
+	def addCommand(self, name, cmddisco, cmdexecute, jid=""):
 		"""
-		Adds a new command.
+		The method to call if adding a new command to the session,
+		the requred parameters of cmddisco and cmdexecute
+		are the methods to enable that command to be executed.
 		"""
-		self.DEBUG(f"Adding command '{command_node_name_str}' for JID '{target_jid_str or 'default'}'", "info")
-		if target_jid_str not in self._handlers:
-			self._handlers[target_jid_str] = {}
-			# Register a general disco handler for NS_COMMANDS *on this specific JID* if it's not the default "" JID
-			if target_jid_str:
-			    self._disco_browser.set_disco_handler(self._handle_disco_query_for_commands_node, node=NS_COMMANDS, target_jid_str=target_jid_str)
+		# This command takes a command object and the name of the command for registration
+		# We must:
+		#   Add item into disco
+		#   Add item into command list
+		if not self._handlers.has_key(jid):
+			self._handlers[jid] = {}
+			self._browser.setDiscoHandler(self._DiscoHandler, node=NS_COMMANDS, jid=jid)
+		if self._handlers[jid].has_key(name):
+			raise NameError("Command Exists")
+		self._handlers[jid][name] = {"disco": cmddisco, "execute": cmdexecute}
+		# Need to add disco stuff here
+		self._browser.setDiscoHandler(cmddisco, node=name, jid=jid)
 
-		if command_node_name_str in self._handlers[target_jid_str]:
-			raise NameError(f"Command '{command_node_name_str}' already exists for JID '{target_jid_str}'")
-
-		self._handlers[target_jid_str][command_node_name_str] = {"disco": disco_handler_func, "execute": execute_handler_func}
-		# Register the specific command's disco handler under its own node
-		self._disco_browser.set_disco_handler(disco_handler_func, node=command_node_name_str, target_jid_str=target_jid_str)
-
-	def delete_command(self, command_node_name_str, target_jid_str=""): # Renamed params
+	def delCommand(self, name, jid=""):
 		"""
-		Removes a command.
+		Removed command from the session.
 		"""
-		if target_jid_str not in self._handlers:
-			raise NameError(f"JID '{target_jid_str}' not found in command handlers.")
-		if command_node_name_str not in self._handlers[target_jid_str]:
-			raise NameError(f"Command '{command_node_name_str}' not found for JID '{target_jid_str}'.")
+		# This command takes a command object and the name used for registration
+		# We must:
+		#   Remove item from disco
+		#   Remove item from command list
+		if not self._handlers.has_key(jid):
+			raise NameError("Jid not found")
+		if not self._handlers[jid].has_key(name):
+			raise NameError("Command not found")
+		# Do disco removal here
+		command = self.getCommand(name, jid)["disco"]
+		del self._handlers[jid][name]
+		self._browser.delDiscoHandler(command, node=name, jid=jid)
 
-		self.DEBUG(f"Deleting command '{command_node_name_str}' for JID '{target_jid_str or 'default'}'", "info")
-		# disco_handler_to_remove = self._handlers[target_jid_str][command_node_name_str]["disco"] # Not needed if just deleting
-		del self._handlers[target_jid_str][command_node_name_str]
-		self._disco_browser.delete_disco_handler(disco_node_str=command_node_name_str, target_jid_str=target_jid_str)
-
-		# If this was the last command for a specific JID (not default), remove its NS_COMMANDS disco handler
-		if target_jid_str and not self._handlers[target_jid_str]:
-		    del self._handlers[target_jid_str]
-		    self._disco_browser.delete_disco_handler(disco_node_str=NS_COMMANDS, target_jid_str=target_jid_str)
-
-
-	def get_command_handlers(self, command_node_name_str, target_jid_str=""): # Renamed params
+	def getCommand(self, name, jid=""):
 		"""
-		Returns the dictionary {"disco": disco_handler_func, "execute": execute_handler_func}.
+		Returns the command tuple.
 		"""
-		if target_jid_str not in self._handlers:
-			raise NameError(f"JID '{target_jid_str}' not found.")
-		if command_node_name_str not in self._handlers[target_jid_str]:
-			# Fallback to default JID if not found for specific JID
-			if "" in self._handlers and command_node_name_str in self._handlers[""]:
-			    return self._handlers[""][command_node_name_str]
-			raise NameError(f"Command '{command_node_name_str}' not found for JID '{target_jid_str}' or default.")
-		return self._handlers[target_jid_str][command_node_name_str]
+		# This gets the command object with name
+		# We must:
+		#   Return item that matches this name
+		if not self._handlers.has_key(jid):
+			raise NameError("Jid not found")
+		if not self._handlers[jid].has_key(name):
+			raise NameError("Command not found")
+		return self._handlers[jid][name]
 
-class AdHocCommandHandlerPrototype(PlugIn): # Renamed Command_Handler_Prototype
+class Command_Handler_Prototype(PlugIn):
 	"""
-	Prototype for command handlers.
+	This is a prototype command handler, as each command uses a disco method
+	and execute method you can implement it any way you like, however this is
+	my first attempt at making a generic handler that you can hang process
+	stages on too. There is an example command below.
+
+	The parameters are as follows:
+	name: the name of the command within the jabber environment
+	description: the natural language description
+	discofeatures: the features supported by the command
+	initial: the initial command in the from of {"execute": commandname}
+
+	All stages set the "actions" dictionary for each session to represent the possible options available.
 	"""
-	command_name_node = "examplecommand" # Renamed name
-	command_description = "An example command" # Renamed description
-	disco_supported_features = [NS_COMMANDS, NS_DATA] # Renamed discofeatures
+	name = "examplecommand"
+	count = 0
+	description = "an example command"
+	discofeatures = [NS_COMMANDS, NS_DATA]
 
-	# initial_actions_map: {"action_name": self.method_for_action}
-	# Example: {"execute": self._execute_initial_stage}
-	initial_actions_map = {} # Renamed initial
-
-	def __init__(self, target_jid_str=""): # Renamed jid
+	# This is the command template
+	def __init__(self, jid=""):
+		"""
+		Set up the class.
+		"""
 		PlugIn.__init__(self)
-		self.DEBUG_LINE_PREFIX = DEBUG_SCOPE_COMMANDS # Class attribute for debug scope
-		self._session_id_counter = 0 # Renamed sessioncount, count
-		self.active_sessions = {} # Renamed sessions: {session_id: {"jid": from_jid, "actions": {...}, "data":{...}}}
-
-		self.static_disco_info = { # Renamed discoinfo
+		DBG_LINE = "command"
+		self.sessioncount = 0
+		self.sessions = {}
+		# Disco information for command list pre-formatted as a tuple
+		self.discoinfo = {
 			"ids": [{
 				"category": "automation",
 				"type": "command-node",
-				"name": self.command_description
+				"name": self.description
 			}],
-			"features": self.disco_supported_features
+			"features": self.discofeatures
 		}
-		self._target_jid_str = target_jid_str # JID this command handler is registered for (empty for default)
+		self._jid = jid
 
-	def plugin(self, command_manager_instance): # Renamed owner
+	def plugin(self, owner):
 		"""
-		Plugs this command handler into an AdHocCommandManager instance.
+		Plug command into the commands class.
 		"""
-		self._command_manager = command_manager_instance # Renamed _commands
-		self._owner = command_manager_instance._owner # The XMPP client/component instance
-		self._command_manager.add_command(
-		    self.command_name_node,
-		    self._handle_disco_query,
-		    self.execute_command_stage,
-		    jid=self._target_jid_str
-		)
+		# The owner in this instance is the Command Processor
+		self._commands = owner
+		self._owner = owner._owner
+		self._commands.addCommand(self.name, self._DiscoHandler, self.Execute, jid=self._jid)
 
 	def plugout(self):
 		"""
-		Removes this command from the AdHocCommandManager.
+		Remove command from the commands class.
 		"""
-		if hasattr(self, '_command_manager') and self._command_manager:
-			self._command_manager.delete_command(self.command_name_node, jid=self._target_jid_str)
+		self._commands.delCommand(self.name, self._jid)
 
-	def _generate_session_id(self): # Renamed getSessionID
-		""" Returns a unique ID for the command session. """
-		self._session_id_counter += 1
-		return f"cmd-{self.command_name_node}-{self._session_id_counter}"
-
-	def execute_command_stage(self, dispatcher_instance, command_iq_stanza): # Renamed Execute, conn, request
+	def getSessionID(self):
 		"""
-		Handles command execution IQs, routing to appropriate stage methods.
+		Returns an id for the command session.
 		"""
-		command_node = command_iq_stanza.getTag("command", namespace=NS_COMMANDS)
-		session_id = command_node.getAttr("sessionid")
-		action_requested = command_node.getAttr("action")
+		self.count = self.count + 1
+		return "cmd-%s-%d" % (self.name, self.count)
 
-		from_jid_str = str(command_iq_stanza.get_from())
-
-		if action_requested is None: # If no action, default to "execute" for new session or current default
-		    action_requested = "execute"
-
-		if session_id and session_id in self.active_sessions:
-			session_data = self.active_sessions[session_id]
-			if session_data["jid_str"] == from_jid_str:
-				if action_requested in session_data["actions_map"]: # Renamed actions
-					# Execute the method associated with the action
-					session_data["actions_map"][action_requested](dispatcher_instance, command_iq_stanza, session_id, session_data)
+	def Execute(self, conn, request):
+		"""
+		The method that handles all the commands, and routes them to the correct method for that stage.
+		"""
+		# New request or old?
+		try:
+			session = request.getTagAttr("command", "sessionid")
+		except Exception:
+			session = None
+		try:
+			action = request.getTagAttr("command", "action")
+		except Exception:
+			action = None
+		if action == None:
+			action = "execute"
+		# Check session is in session list
+		if self.sessions.has_key(session):
+			if self.sessions[session]["jid"] == request.getFrom():
+				# Check action is vaild
+				if self.sessions[session]["actions"].has_key(action):
+					# Execute next action
+					self.sessions[session]["actions"][action](conn, request)
 				else:
-					dispatcher_instance.send(ErrorStanza(command_iq_stanza, ERR_BAD_REQUEST("Invalid action for current session stage.")))
-			else: # JID mismatch for session ID
-				dispatcher_instance.send(ErrorStanza(command_iq_stanza, ERR_BAD_REQUEST("Session ID belongs to another JID.")))
-		elif session_id is None: # New session
-			if action_requested in self.initial_actions_map:
-				# Call the initial stage handler (e.g., self.initial_actions_map["execute"] might be self._execute_first_stage)
-				self.initial_actions_map[action_requested](dispatcher_instance, command_iq_stanza, None, None) # No session_id or session_data yet
+					# Stage not presented as an option
+					self._owner.send(Error(request, ERR_BAD_REQUEST))
+					raise NodeProcessed()
 			else:
-				dispatcher_instance.send(ErrorStanza(command_iq_stanza, ERR_BAD_REQUEST("Invalid initial action.")))
-		else: # Session ID provided but not found
-			dispatcher_instance.send(ErrorStanza(command_iq_stanza, ERR_ITEM_NOT_FOUND("Invalid session ID.")))
-		raise NodeProcessed()
+				# Jid and session don't match. Go away imposter
+				self._owner.send(Error(request, ERR_BAD_REQUEST))
+				raise NodeProcessed()
+		elif session != None:
+			# Not on this sessionid you won't.
+			self._owner.send(Error(request, ERR_BAD_REQUEST))
+			raise NodeProcessed()
+		else:
+			# New session
+			self.initial[action](conn, request)
 
-	def _handle_disco_query(self, dispatcher_instance, disco_iq_request, disco_query_type_str): # Renamed _DiscoHandler, conn, request, type
+	def _DiscoHandler(self, conn, request, type):
 		"""
-		Handles discovery events for this specific command node.
+		The handler for discovery events.
 		"""
-		if disco_query_type_str == "list": # This command node itself is an item.
-			# Returns tuple: (jid_of_command_provider, command_node_name, natural_language_name)
-			# jid_of_command_provider is usually the component's JID or where the command is hosted.
-			# For a command handled by the component itself, this would be the component's JID.
-			# If this command is registered for a specific JID via self._target_jid_str, use that.
-			command_provider_jid = self._target_jid_str if self._target_jid_str else str(disco_iq_request.get_to())
-			return (command_provider_jid, self.command_name_node, self.command_description)
-		elif disco_query_type_str == "items": # A command node itself typically doesn't have sub-items.
-			return [] # No sub-items for a specific command node by default.
-		elif disco_query_type_str == "info": # Info about this command.
-			return self.static_disco_info # Return pre-formatted dict
-		return None # Should not be called with other types by AdHocCommandManager
+		if type == "list":
+			result = (request.getTo(), self.name, self.description)
+		elif type == "items":
+			result = []
+		elif type == "info":
+			result = self.discoinfo
+		return result
 
-class TestAdHocCommand(AdHocCommandHandlerPrototype): # Renamed TestCommand
+class TestCommand(Command_Handler_Prototype):
 	"""
-	Example command class.
+	Example class. You should read source if you wish to understate how it works.
+	Generally, it presents a "master" that giudes user through to calculate something.
 	"""
-	command_name_node = "testcommand"
-	command_description = "A Noddy Example Command for XMPPPy"
-	# discofeatures is inherited
+	name = "testcommand"
+	description = "a noddy example command"
 
-	def __init__(self, target_jid_str=""): # Renamed jid
-		AdHocCommandHandlerPrototype.__init__(self, target_jid_str)
-		# Map initial "execute" action to the first stage method
-		self.initial_actions_map = {"execute": self._execute_first_stage}
+	def __init__(self, jid=""):
+		""" Init internal constants. """
+		Command_Handler_Prototype.__init__(self, jid)
+		self.initial = {"execute": self.cmdFirstStage}
 
-	def _execute_first_stage(self, dispatcher_instance, command_iq_stanza, _session_id, _session_data): # Renamed cmdFirstStage, conn, request
-		# New session, _session_id and _session_data will be None from execute_command_stage
-		session_id = self._generate_session_id() # Renamed getSessionID
-		self.active_sessions[session_id] = {
-			"jid_str": str(command_iq_stanza.get_from()),
-			"actions_map": { # Possible actions from this stage
-				"cancel": self._execute_cancel_stage, # Renamed cmdCancel
-				"next": self._execute_second_stage,   # Renamed cmdSecondStage
-				"execute": self._execute_second_stage # Default action if 'next' is implied
-			},
-			"data": {"calculation_type": None} # Store form data here
-		}
-
-		reply_iq = command_iq_stanza.build_reply("result")
-		data_form = DataForm(form_type="form", title_text="Select type of operation", # Renamed title
-			data_payload=[ # Renamed data
+	def cmdFirstStage(self, conn, request):
+		"""
+		Determine.
+		"""
+		# This is the only place this should be repeated as all other stages should have SessionIDs
+		try:
+			session = request.getTagAttr("command", "sessionid")
+		except Exception:
+			session = None
+		if session == None:
+			session = self.getSessionID()
+			self.sessions[session] = {
+				"jid": request.getFrom(),
+				"actions": {
+					"cancel": self.cmdCancel,
+					"next": self.cmdSecondStage,
+					"execute": self.cmdSecondStage
+				},
+				"data": {"type": None}
+			}
+		# As this is the first stage we only send a form
+		reply = request.buildReply("result")
+		form = DataForm(title="Select type of operation",
+			data=[
 				"Use the combobox to select the type of calculation you would like to do, then click Next.",
-				DataFormField(variable_name="calctype", description_text="Calculation Type", # Renamed name, desc, typ
-					field_value=self.active_sessions[session_id]["data"]["calculation_type"], # Use new structure
-					options_list=[ # Renamed options
+				DataField(name="calctype", desc="Calculation Type",
+					value=self.sessions[session]["data"]["type"],
+					options=[
 						["circlediameter", "Calculate the Diameter of a circle"],
 						["circlearea", "Calculate the area of a circle"]
 					],
-					field_type="list-single",
-					is_required=True
+					typ="list-single",
+					required=1
 			)])
-
-		command_reply_node = Node("command",
+		replypayload = [Node("actions", attrs={"execute": "next"}, payload=[Node("next")]), form]
+		reply.addChild(name="command",
 			namespace=NS_COMMANDS,
 			attrs={
-				"node": self.command_name_node, # Use class attribute
-				"sessionid": session_id,
+				"node": request.getTagAttr("command", "node"),
+				"sessionid": session,
 				"status": "executing"
 			},
-			payload_list=[Node("actions", attrs={"execute": "next"}, payload_list=[Node("next")]), data_form] # Renamed replypayload
+			payload=replypayload
 		)
-		reply_iq.addChild(node=command_reply_node)
-		self._owner.send(reply_iq) # _owner is the client/component instance
+		self._owner.send(reply)
 		raise NodeProcessed()
 
-	def _execute_second_stage(self, dispatcher_instance, command_iq_stanza, session_id, session_data): # Renamed cmdSecondStage
-		command_node = command_iq_stanza.getTag("command")
-		data_form_node = command_node.getTag("x", namespace=NS_DATA)
-		if not data_form_node:
-		    dispatcher_instance.send(ErrorStanza(command_iq_stanza, ERR_BAD_REQUEST("Data form missing.")))
-		    raise NodeProcessed()
-
-		submitted_form = DataForm(source_node=data_form_node) # Renamed form
-		calc_type_field = submitted_form.get_field("calctype") # Use new name
-		if not calc_type_field or not calc_type_field.get_value():
-		    # Re-present first stage if type not selected (or handle error)
-		    self._execute_first_stage(dispatcher_instance, command_iq_stanza, None, None) # Treat as new effectively
-		    return
-
-		session_data["data"]["calculation_type"] = calc_type_field.get_value()
-		session_data["actions_map"] = {
-			"cancel": self._execute_cancel_stage,
-			"previous": self._execute_first_stage, # Go back to first stage
-			"execute": self._execute_third_stage,  # Default action for this stage
-			"next": self._execute_third_stage     # Explicit next
+	def cmdSecondStage(self, conn, request):
+		form = DataForm(node=request.getTag(name="command").getTag(name="x", namespace=NS_DATA))
+		self.sessions[request.getTagAttr("command", "sessionid")]["data"]["type"] = form.getField("calctype").getValue()
+		self.sessions[request.getTagAttr("command", "sessionid")]["actions"] = {
+			"cancel": self.cmdCancel,
+			None: self.cmdThirdStage,
+			"previous": self.cmdFirstStage,
+			"execute": self.cmdThirdStage,
+			"next": self.cmdThirdStage
 		}
-		self._send_second_stage_reply(dispatcher_instance, command_iq_stanza, session_id) # Renamed cmdSecondStageReply
+		# The form generation is split out to another method as it may be called by cmdThirdStage
+		self.cmdSecondStageReply(conn, request)
 
-	def _send_second_stage_reply(self, dispatcher_instance, original_iq_stanza, session_id): # Renamed cmdSecondStageReply
-		reply_iq = original_iq_stanza.build_reply("result")
-		data_form = DataForm(form_type="form", title_text="Enter the radius",
-			data_payload=[
+	def cmdSecondStageReply(self, conn, request):
+		reply = request.buildReply("result")
+		form = DataForm(title="Enter the radius",
+			data=[
 				"Enter the radius of the circle (numbers only)",
-				DataFormField(description_text="Radius", variable_name="radius", field_type="text-single", is_required=True)
+				DataField(desc="Radius", name="radius", typ="text-single")
 			])
-
-		actions_node = Node("actions", attrs={"execute": "next"}, payload_list=[Node("next"), Node("prev")]) # 'complete' might be better if this is final input
-
-		command_reply_node = Node("command",
+		replypayload = [
+			Node("actions",
+			attrs={"execute": "complete"},
+			payload=[Node("complete"),
+			Node("prev")]),
+			form
+		]
+		reply.addChild(name="command",
 			namespace=NS_COMMANDS,
 			attrs={
-				"node": self.command_name_node,
-				"sessionid": session_id,
+				"node": request.getTagAttr("command", "node"),
+				"sessionid": request.getTagAttr("command", "sessionid"),
 				"status": "executing"
 			},
-			payload_list=[actions_node, data_form]
+			payload=replypayload
 		)
-		reply_iq.addChild(node=command_reply_node)
-		self._owner.send(reply_iq)
+		self._owner.send(reply)
 		raise NodeProcessed()
 
-	def _execute_third_stage(self, dispatcher_instance, command_iq_stanza, session_id, session_data): # Renamed cmdThirdStage
-		command_node = command_iq_stanza.getTag("command")
-		data_form_node = command_node.getTag("x", namespace=NS_DATA)
-		if not data_form_node:
-		    dispatcher_instance.send(ErrorStanza(command_iq_stanza, ERR_BAD_REQUEST("Data form missing.")))
-		    raise NodeProcessed()
-
-		submitted_form = DataForm(source_node=data_form_node) # Renamed form
-		radius_field = submitted_form.get_field("radius")
-
-		radius_val = 0.0 # Renamed numb
+	def cmdThirdStage(self, conn, request):
+		form = DataForm(node=request.getTag(name="command").getTag(name="x", namespace=NS_DATA))
 		try:
-			radius_val = float(radius_field.get_value())
-		except (ValueError, TypeError, AttributeError): # Catch if field missing or not a number
-			# Invalid input, re-present the second stage form
-			self.DEBUG("Invalid radius input, re-sending second stage.", "warn")
-			session_data["actions_map"]["execute"] = self._execute_third_stage # Ensure execute maps to current stage for retry
-			self._send_second_stage_reply(dispatcher_instance, command_iq_stanza, session_id)
-			return # NodeProcessed is raised in _send_second_stage_reply
-
-		from math import pi # Import math if not already
-		calculated_result = 0.0 # Renamed result
-		if session_data["data"]["calculation_type"] == "circlearea":
-			calculated_result = (radius_val ** 2) * pi
-		else: # Default to circlediameter (or circumference based on original code's math)
-			calculated_result = radius_val * 2 * pi # This is circumference, not diameter. Original code was 2*pi*r
-
-		reply_iq = command_iq_stanza.build_reply("result")
-		result_form = DataForm(form_type="result", data_payload=[DataFormField(variable_name="result", description_text="Calculation Result", field_value=str(calculated_result))])
-
-		command_reply_node = Node("command",
+			numb = float(form.getField("radius").getValue())
+		except Exception:
+			self.cmdSecondStageReply(conn, request)
+		from math import pi
+		if self.sessions[request.getTagAttr("command", "sessionid")]["data"]["type"] == "circlearea":
+			result = (numb ** 2) * pi
+		else:
+			result = numb * 2 * pi
+		reply = request.buildReply("result")
+		form = DataForm(typ="result", data=[DataField(desc="result", name="result", value=result)])
+		reply.addChild(name="command",
 			namespace=NS_COMMANDS,
 			attrs={
-				"node": self.command_name_node,
-				"sessionid": session_id,
-				"status": "completed" # Command finished
+				"node": request.getTagAttr("command", "node"),
+				"sessionid": request.getTagAttr("command", "sessionid"),
+				"status": "completed"
 			},
-			payload_list=[result_form]
+			payload=[form]
 		)
-		reply_iq.addChild(node=command_reply_node)
-		self._owner.send(reply_iq)
-		del self.active_sessions[session_id] # Clean up session
+		self._owner.send(reply)
 		raise NodeProcessed()
 
-	def _execute_cancel_stage(self, dispatcher_instance, command_iq_stanza, session_id, _session_data): # Renamed cmdCancel
-		reply_iq = command_iq_stanza.build_reply("result")
-		command_reply_node = Node("command",
+	def cmdCancel(self, conn, request):
+		reply = request.buildReply("result")
+		reply.addChild(name="command",
 			namespace=NS_COMMANDS,
 			attrs={
-				"node": self.command_name_node,
-				"sessionid": session_id,
-				"status": "canceled" # Corrected spelling
+				"node": request.getTagAttr("command", "node"),
+				"sessionid": request.getTagAttr("command", "sessionid"),
+				"status": "cancelled"
 			})
-		reply_iq.addChild(node=command_reply_node)
-		self._owner.send(reply_iq)
-		if session_id in self.active_sessions: # Clean up session
-			del self.active_sessions[session_id]
-		raise NodeProcessed()
+		self._owner.send(reply)
+		del self.sessions[request.getTagAttr("command", "sessionid")]
