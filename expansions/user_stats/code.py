@@ -18,7 +18,7 @@ class expansion_temp(expansion):
 	db = lambda self, conf: database(cefile(chat_file(conf, self.UstatsFile)), self.UstatsDesc[conf])
 
 	def command_user_stats(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if not body:
 				body = get_source(source[1], source[2])
 			elif Chats[source[1]].isHere(body):
@@ -38,7 +38,7 @@ class expansion_temp(expansion):
 		Answer(answer, stype, source, disp)
 
 	def command_here(self, stype, source, nick, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if not nick:
 				nick = source[2]
 			if Chats[source[1]].isHereTS(nick):
@@ -84,7 +84,7 @@ class expansion_temp(expansion):
 					db("select * from stat where jid=?", (source_,))
 					db_desc = db.fetchone()
 					if db_desc:
-						db("update stat set seen=?, leave=? where jid=?", (date, unicode(sbody), source_))
+						db("update stat set seen=?, leave=? where jid=?", (date, str(sbody), source_))
 						db.commit()
 
 	def calc_stat_06eh(self, conf, old_nick, nick, disp):

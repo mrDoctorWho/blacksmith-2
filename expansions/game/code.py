@@ -39,12 +39,12 @@ class expansion_temp(expansion):
 		if Char:
 			Char = Char.lower()
 			if Char in self.GameDesc:
-				Char_2 = choice(self.GameDesc.keys())
+				Char_2 = choice(list(self.GameDesc.keys()))
 				Answer(Char_2, stype, source, disp)
 				sleep(3.2)
 				if Char == Char_2:
 					answer = self.AnsBase[0]
-				elif self.GameDesc[Char_2].has_key(Char):
+				elif Char in self.GameDesc[Char_2]:
 					answer = self.AnsBase[1] % (self.GameRules[self.GameDesc[Char_2][Char]])
 				else:
 					answer = self.AnsBase[2] % (self.GameRules[self.GameDesc[Char][Char_2]])

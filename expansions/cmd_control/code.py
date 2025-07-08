@@ -5,6 +5,8 @@
 #  Id: 32~2c
 #  Code © (2012) by WitcherGeralt [alkorgun@gmail.com]
 
+import ast
+
 class expansion_temp(expansion):
 
 	def __init__(self, name):
@@ -13,7 +15,7 @@ class expansion_temp(expansion):
 	TabooFile = "taboo.db"
 
 	def command_taboo(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			oCmds = Chats[source[1]].oCmds
 			if body:
 				if enough_access(source[1], source[2], 6):
@@ -52,7 +54,16 @@ class expansion_temp(expansion):
 	def init_taboo(self, conf):
 		filename = chat_file(conf, self.TabooFile)
 		if initialize_file(filename, "[]"):
-			Chats[conf].oCmds = eval(get_file(filename))
+			file_content = get_file(filename)
+			if file_content: # Ensure content is not empty
+				try:
+					Chats[conf].oCmds = ast.literal_eval(file_content)
+				except (ValueError, SyntaxError) as e:
+					# Handle cases where content is not a valid Python literal (e.g., corrupted file)
+					Print(f"Error loading taboo file {filename}: {e}. Initializing with empty list.", color2)
+					Chats[conf].oCmds = []
+			else:
+				Chats[conf].oCmds = [] # Initialize with empty list if file is empty
 
 	commands = ((command_taboo, "taboo", 1, False),)
 

@@ -195,7 +195,7 @@ class expansion_temp(expansion):
 		if body:
 			ls = body.split()
 			Desc = (ls.pop(0)).lower()
-			if self.CrDesc.has_key(Desc):
+			if Desc in self.CrDesc:
 				if len(ls) == 3:
 					try:
 						Number = float(ls.pop(0))
@@ -204,7 +204,7 @@ class expansion_temp(expansion):
 					else:
 						Type = (ls.pop(0)).lower()
 						ToType = (ls.pop(0)).lower()
-						if self.CrDesc[Desc].has_key(Type) and self.CrDesc[Desc].has_key(ToType):
+						if Type in self.CrDesc[Desc] and ToType in self.CrDesc[Desc]:
 							if Desc == "temperature":
 								answer = str(self.ConvertTemp(Number, Type, ToType))
 							else:

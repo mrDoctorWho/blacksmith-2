@@ -107,7 +107,7 @@ class expansion_temp(expansion):
 							"серию".decode("utf-8"): ls[2],
 							"cycle": ls[2]
 						}
-						if desc.has_key(a2):
+						if a2 in desc:
 							a2 = desc.get(a2, None)
 						if a2 in ls and args:
 							a3 = body[((body.lower()).find(a0) + len(a0)):].strip()
@@ -215,7 +215,7 @@ class expansion_temp(expansion):
 						answer = self.AnsBase[4]
 				else:
 					answer = self.AnsBase[5]
-				if locals().has_key("book"):
+				if "book" in locals():
 					with database(self.BooksFile) as db:
 						db("select * from books where id=?", (book,))
 						data = db.fetchone()
@@ -320,7 +320,7 @@ class expansion_temp(expansion):
 									"cover_ext": ls[9],
 									"cycle": ls[3]
 								}
-								if desc.has_key(a4):
+								if a4 in desc:
 									a4 = desc.get(a4, None)
 								if a4 in ls:
 									a5 = (args.pop(0)).lower()
@@ -375,11 +375,11 @@ class expansion_temp(expansion):
 													if a5 in ("before", "до".decode("utf-8")):
 														if 0 < a6 < llens:
 															page = itypes.Number()
-															for Numb in xrange(a6, (llens + 1)):
+															for Numb in range(a6, (llens + 1)):
 																db("select data from %s where page=?" % (a2), (Numb,))
 																data = db.fetchone()
 																db("update %s set data=? where page=?" % (a2), (data[0], page.plus()))
-															for Numb in xrange(page.plus(), (llens + 1)):
+															for Numb in range(page.plus(), (llens + 1)):
 																db("delete from %s where page=?" % (a2), (Numb,))
 															db("update books set date=? where id=?", (time.asctime(), a2))
 															db.commit()
@@ -388,7 +388,7 @@ class expansion_temp(expansion):
 															answer = self.AnsBase[13]
 													elif a5 in ("only", "только".decode("utf-8")):
 														if 0 < a6 < (llens + 1):
-															for Numb in xrange(a6, (llens + 1)):
+															for Numb in range(a6, (llens + 1)):
 																db("select data from %s where page=?" % (a2), ((Numb + 1),))
 																data = db.fetchone()
 																db("update %s set data=? where page=?" % (a2), (data[0], Numb))
@@ -400,7 +400,7 @@ class expansion_temp(expansion):
 															answer = self.AnsBase[14]
 													elif a5 in ("after", "после".decode("utf-8")):
 														if 0 < a6 < (llens - 1):
-															for Numb in xrange((a6 + 1), (llens + 1)):
+															for Numb in range((a6 + 1), (llens + 1)):
 																db("delete from %s where page=?" % (a2), (Numb,))
 															db("update books set date=? where id=?", (time.asctime(), a2))
 															db.commit()

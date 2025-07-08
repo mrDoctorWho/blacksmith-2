@@ -10,50 +10,58 @@ This code is covered by the standard Python License. See LICENSE for details.
 TYPE values (section 3.2.2).
 """
 
-A = 1           # a host address
-NS = 2          # an authoritative name server
-MD = 3          # a mail destination (Obsolete - use MX)
-MF = 4          # a mail forwarder (Obsolete - use MX)
-CNAME = 5       # the canonical name for an alias
-SOA = 6         # marks the start of a zone of authority
-MB = 7          # a mailbox domain name (EXPERIMENTAL)
-MG = 8          # a mail group member (EXPERIMENTAL)
-MR = 9          # a mail rename domain name (EXPERIMENTAL)
-NULL = 10       # a null RR (EXPERIMENTAL)
-WKS = 11        # a well known service description
-PTR = 12        # a domain name pointer
-HINFO = 13      # host information
-MINFO = 14      # mailbox or mail list information
-MX = 15         # mail exchange
-TXT = 16        # text strings
-AAAA = 28       # IPv6 AAAA records (RFC 1886)
-SRV = 33        # dns RR for specifying the location of services (RFC 2782)
-SPF = 99        # TXT RR for Sender Policy Framework
+RECORD_TYPE_A = 1           # a host address
+RECORD_TYPE_NS = 2          # an authoritative name server
+RECORD_TYPE_MD = 3          # a mail destination (Obsolete - use MX)
+RECORD_TYPE_MF = 4          # a mail forwarder (Obsolete - use MX)
+RECORD_TYPE_CNAME = 5       # the canonical name for an alias
+RECORD_TYPE_SOA = 6         # marks the start of a zone of authority
+RECORD_TYPE_MB = 7          # a mailbox domain name (EXPERIMENTAL)
+RECORD_TYPE_MG = 8          # a mail group member (EXPERIMENTAL)
+RECORD_TYPE_MR = 9          # a mail rename domain name (EXPERIMENTAL)
+RECORD_TYPE_NULL = 10       # a null RR (EXPERIMENTAL)
+RECORD_TYPE_WKS = 11        # a well known service description
+RECORD_TYPE_PTR = 12        # a domain name pointer
+RECORD_TYPE_HINFO = 13      # host information
+RECORD_TYPE_MINFO = 14      # mailbox or mail list information
+RECORD_TYPE_MX = 15         # mail exchange
+RECORD_TYPE_TXT = 16        # text strings
+RECORD_TYPE_AAAA = 28       # IPv6 AAAA records (RFC 1886)
+RECORD_TYPE_SRV = 33        # dns RR for specifying the location of services (RFC 2782)
+RECORD_TYPE_SPF = 99        # TXT RR for Sender Policy Framework
 
 # Additional TYPE values from host.c source
+# These seem less standard, will prefix them as well for consistency for now.
+RECORD_TYPE_UNAME = 110
+RECORD_TYPE_MP = 240
 
-UNAME = 110
-MP = 240
-
-# QTYPE values (section 3.2.3)
-
-AXFR = 252      # A request for a transfer of an entire zone
-MAILB = 253     # A request for mailbox-related records (MB, MG or MR)
-MAILA = 254     # A request for mail agent RRs (Obsolete - see MX)
-ANY = 255       # A request for all records
+# QTYPE values (section 3.2.3) - Query Types
+QUERY_TYPE_AXFR = 252      # A request for a transfer of an entire zone
+QUERY_TYPE_MAILB = 253     # A request for mailbox-related records (MB, MG or MR)
+QUERY_TYPE_MAILA = 254     # A request for mail agent RRs (Obsolete - see MX)
+QUERY_TYPE_ANY = 255       # A request for all records
 
 # Construct reverse mapping dictionary
+__all__ = [
+    'RECORD_TYPE_A', 'RECORD_TYPE_NS', 'RECORD_TYPE_MD', 'RECORD_TYPE_MF',
+    'RECORD_TYPE_CNAME', 'RECORD_TYPE_SOA', 'RECORD_TYPE_MB', 'RECORD_TYPE_MG',
+    'RECORD_TYPE_MR', 'RECORD_TYPE_NULL', 'RECORD_TYPE_WKS', 'RECORD_TYPE_PTR',
+    'RECORD_TYPE_HINFO', 'RECORD_TYPE_MINFO', 'RECORD_TYPE_MX', 'RECORD_TYPE_TXT',
+    'RECORD_TYPE_AAAA', 'RECORD_TYPE_SRV', 'RECORD_TYPE_SPF',
+    'RECORD_TYPE_UNAME', 'RECORD_TYPE_MP',
+    'QUERY_TYPE_AXFR', 'QUERY_TYPE_MAILB', 'QUERY_TYPE_MAILA', 'QUERY_TYPE_ANY'
+]
 
-_names = dir()
-typemap = {}
-for _name in _names:
-    if _name[0] != '_':
-        typemap[eval(_name)] = _name
+RECORD_TYPE_MAP = {} # Renamed typemap
+for name_val in __all__:
+    # Ensure we only map actual type constants by checking prefix
+    if name_val.startswith("RECORD_TYPE_") or name_val.startswith("QUERY_TYPE_"):
+        RECORD_TYPE_MAP[globals()[name_val]] = name_val
 
-def typestr(type):
-    if type in typemap:
-        return typemap[type]
-    return repr(type)
+def get_type_string(type_code): # Renamed typestr and type
+    if type_code in RECORD_TYPE_MAP:
+        return RECORD_TYPE_MAP[type_code]
+    return repr(type_code)
 
 #
 # $Log: Type.py,v $

@@ -5,6 +5,8 @@
 #  Id: 27~5c
 #  Code © (2010-2013) by WitcherGeralt [alkorgun@gmail.com]
 
+import ast
+
 class expansion_temp(expansion):
 
 	def __init__(self, name):
@@ -31,18 +33,18 @@ class expansion_temp(expansion):
 
 		while VarCache["alive"]:
 			sleep(2)
-			if not expansions.has_key(self.name):
+			if self.name not in expansions:
 				break
 			Time = time.mktime(time.gmtime())
-			for id, (date, ls) in self.CronDesc.items():
+			for id, (date, ls) in list(self.CronDesc.items()):
 				if Time > date:
-					if Cmds.has_key(ls[0]):
+					if ls[0] in Cmds:
 						sThread("command(cron)", exe_cron, ls)
 					del self.CronDesc[id]
 
 	def add_cron(self, disp, ls, body, Te, source, stype, gt, answer, repeat, **etc):
 		cmd = (ls.pop(0)).lower()
-		if Cmds.has_key(cmd):
+		if cmd in Cmds:
 			if enough_access(source[1], source[2], Cmds[cmd].access):
 				if ls:
 					body = body[((body.lower()).find(cmd) + len(cmd)):].strip()
@@ -95,7 +97,7 @@ class expansion_temp(expansion):
 								answer = self.AnsBase[2]
 							elif 59 < Te and Te*Tr <= 4147200 or enough_access(source[1], source[2], 7):
 								t_ls, repeat = [Te], (Te, itypes.Number(Tr))
-								for x in xrange(7):
+								for x in range(7):
 									t_ls.append(t_ls[-1] + Te)
 								Time = time.mktime(gt)
 								Te += Time
@@ -143,7 +145,7 @@ class expansion_temp(expansion):
 											date[0] = int(Date.pop(0))
 								except Exception:
 									answer = AnsBase[2]
-						if not locals().has_key(sBase[6]):
+						if sBase[6] not in locals():
 							try:
 								date = time.struct_time(date)
 							except Exception:
@@ -200,9 +202,19 @@ class expansion_temp(expansion):
 			if thr.name.startswith(Name):
 				thr.kill()
 		if initialize_file(self.CronFile, "({}, 0)"):
-			cdesc, ccnt = eval(get_file(self.CronFile))
+			file_content = get_file(self.CronFile)
+			cdesc, ccnt = ({}, 0) # Default values
+			if file_content:
+				try:
+					cdesc_eval, ccnt_eval = ast.literal_eval(file_content)
+					if isinstance(cdesc_eval, dict) and isinstance(ccnt_eval, int):
+						cdesc, ccnt = cdesc_eval, ccnt_eval
+					else:
+						Print(f"Error: Cron file {self.CronFile} has invalid format. Expected (dict, int).", COLOR_RED)
+				except (ValueError, SyntaxError) as e:
+					Print(f"Error loading cron file {self.CronFile}: {e}. Initializing with empty cron.", COLOR_RED)
 			Time = time.mktime(time.gmtime())
-			for id, (date, ls) in cdesc.items():
+			for id, (date, ls) in list(cdesc.items()): # Use the potentially updated cdesc
 				if Time > date:
 					del cdesc[id]
 				elif len(ls[3]) == 2:
@@ -218,7 +230,7 @@ class expansion_temp(expansion):
 	def cdesc_save(self, conf = None):
 		if not conf:
 			cdesc = self.CronDesc.copy()
-			for id, (date, ls) in cdesc.items():
+			for id, (date, ls) in list(cdesc.items()):
 				command, instance, ls__, repeat = ls
 				if len(repeat) == 2:
 					seconds, repeats = repeat

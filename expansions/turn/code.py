@@ -27,7 +27,7 @@ class expansion_temp(expansion):
 				if user.ishere:
 					for app in ([(user.nick + key) for key in (":", ",", ">")] + [user.nick]):
 						if app in body:
-							Numb = "*%s*" % str(len(desc.keys()) + 1)
+							Numb = "*%s*" % str(len(list(desc.keys())) + 1)
 							desc[Numb] = app
 							body = body.replace(app, Numb)
 			turned = str()
@@ -40,12 +40,12 @@ class expansion_temp(expansion):
 					turned += smb
 			return sub_desc(turned, desc)
 
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				answer = "Turn\->\n" + turn(source[1], body)
 			else:
 				source_ = get_source(source[1], source[2])
-				if source_ and self.TurnBase[source[1]].has_key(source_):
+				if source_ and source_ in self.TurnBase[source[1]]:
 					(Time, body) = self.TurnBase[source[1]].pop(source_)
 					body = "Turn\->\n[%s] <%s>: %s" % (Time, source[2], turn(source[1], body))
 					Message(source[1], body, disp)
@@ -53,7 +53,7 @@ class expansion_temp(expansion):
 					answer = AnsBase[7]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def collect_turnable(self, stanza, isConf, stype, source, body, isToBs, disp):

@@ -9,24 +9,28 @@ This code is covered by the standard Python License. See LICENSE for details.
 Opcode values in message header. RFC 1035, 1996, 2136.
 """
 
-QUERY = 0
-IQUERY = 1
-STATUS = 2
-NOTIFY = 4
-UPDATE = 5
+OPCODE_QUERY = 0
+OPCODE_IQUERY = 1
+OPCODE_STATUS = 2
+OPCODE_NOTIFY = 4
+OPCODE_UPDATE = 5
 
 # Construct reverse mapping dictionary
+# Consider replacing dir() and eval() with a more explicit approach if possible,
+# but for now, just renaming for PEP 8.
+# _names variable is problematic as dir() on its own captures too much.
+# Assuming it meant to capture the globals defined above.
+__all__ = ['OPCODE_QUERY', 'OPCODE_IQUERY', 'OPCODE_STATUS', 'OPCODE_NOTIFY', 'OPCODE_UPDATE']
 
-_names = dir()
-opcodemap = {}
-for _name in _names:
-    if _name[0] != '_':
-        opcodemap[eval(_name)] = _name
+OPCODE_MAP = {}
+for name_val in __all__: # Iterate over explicitly defined opcodes
+    if name_val.startswith("OPCODE_"): # Ensure it's one of our constants
+        OPCODE_MAP[globals()[name_val]] = name_val # Use globals() to get value
 
-def opcodestr(opcode):
-    if opcode in opcodemap:
-        return opcodemap[opcode]
-    return repr(opcode)
+def get_opcode_string(opcode_val): # Renamed opcodestr and opcode
+    if opcode_val in OPCODE_MAP:
+        return OPCODE_MAP[opcode_val]
+    return repr(opcode_val)
 
 #
 # $Log: Opcode.py,v $

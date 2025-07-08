@@ -15,7 +15,7 @@ class expansion_temp(expansion):
 		if body:
 			exp_name = body.lower()
 			if check_nosimbols(exp_name):
-				if expansions.has_key(exp_name):
+				if exp_name in expansions:
 					answer = self.AnsBase[0]
 					code_file = get_state(expansions[exp_name].file)
 					insc_file = get_state(expansions[exp_name].insc)
@@ -43,7 +43,7 @@ class expansion_temp(expansion):
 				answer += "\n%d) %s - %s - %s" % (Number.plus(), exp_name, code_file, insc_file)
 			elexps = []
 			for exp_name in sorted(os.listdir(ExpsDir)):
-				if (".svn" == exp_name) or expansions.has_key(exp_name):
+				if (".svn" == exp_name) or exp_name in expansions:
 					continue
 				if os.path.isdir(os.path.join(ExpsDir, exp_name)):
 					exp = expansion(exp_name)
@@ -98,11 +98,11 @@ class expansion_temp(expansion):
 		if body:
 			body = body.split()
 			exp_name = (body.pop(0)).lower()
-			if expansions.has_key(exp_name):
+			if exp_name in expansions:
 				if body:
 					handler, Name = None, body.pop(0)
 					list = []
-					for ls in expansions[exp_name].desc.values():
+					for ls in list(expansions[exp_name].desc.values()):
 						for instance in ls:
 							inst = instance.__name__
 							list.append(inst)
@@ -131,7 +131,7 @@ class expansion_temp(expansion):
 		if body:
 			ls = body.split()
 			command = (ls.pop(0)).lower()
-			if Cmds.has_key(command):
+			if command in Cmds:
 				cmd = Cmds.get(command)
 				if ls:
 					body = (ls.pop(0)).lower()
@@ -160,7 +160,7 @@ class expansion_temp(expansion):
 			else:
 				answer = AnsBase[6]
 		else:
-			oCmds = [cmd_str for cmd_str, cmd in Cmds.iteritems() if not cmd.isAvalable]
+			oCmds = [cmd_str for cmd_str, cmd in Cmds.items() if not cmd.isAvalable]
 			if oCmds:
 				answer = ", ".join(oCmds)
 			else:

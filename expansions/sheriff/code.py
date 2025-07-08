@@ -5,6 +5,8 @@
 #  Id: 15~6c
 #  Code © (2011-2012) by WitcherGeralt [alkorgun@gmail.com]
 
+import ast
+
 class expansion_temp(expansion):
 
 	def __init__(self, name):
@@ -67,7 +69,7 @@ class expansion_temp(expansion):
 		def alt_change_cfg(chat, opt, state, drange):
 			if isNumber(state):
 				state = int(state)
-				if state in xrange(*drange):
+				if state in range(*drange):
 					ChatsAttrs[chat]["laws"][opt] = state
 					answer = AnsBase[4]
 				else:
@@ -76,7 +78,7 @@ class expansion_temp(expansion):
 				answer = AnsBase[30]
 			return answer
 
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				ls = (body.lower()).split()
 				arg0 = ls.pop(0)
@@ -218,10 +220,10 @@ class expansion_temp(expansion):
 			if ("%" in nick) or ("/" in nick):
 				return True
 			nick = nick.split()[0].lower()
-			if Cmds.has_key(nick):
+			if nick in Cmds:
 				return True
 			if Chats[chat].cPref and nick.startswith(Chats[chat].cPref):
-				if Cmds.has_key(nick[1:]):
+				if nick[1:] in Cmds:
 					return True
 			return False
 
@@ -512,7 +514,20 @@ class expansion_temp(expansion):
 		desc["laws"] = {"awipe": True, "space": True, "verif": False, "tiser": True, "obscene": False, "lower": False, "sparta": False, "list": [], "dtime": 180, "loyalty": 1, "aban": 3, "prlen": 256, "lnick": 24, "len": 1024}
 		filename = chat_file(chat, self.LawsFile)
 		if initialize_file(filename, str(desc["laws"])):
-			desc["laws"] = eval(get_file(filename))
+			file_content = get_file(filename)
+			if file_content:
+				try:
+					evaluated_laws = ast.literal_eval(file_content)
+					if isinstance(evaluated_laws, dict):
+						# Merge with defaults to ensure all keys are present
+						default_laws = desc["laws"].copy()
+						default_laws.update(evaluated_laws)
+						desc["laws"] = default_laws
+					else:
+						Print(f"Error: Laws file {filename} for chat {chat} has invalid format. Expected a dict.", COLOR_RED)
+				except (ValueError, SyntaxError) as e:
+					Print(f"Error loading laws file {filename} for chat {chat}: {e}. Using default laws.", COLOR_RED)
+			# If file_content is empty or parsing fails, desc["laws"] remains the default initialized above.
 
 	def sheriff_04si(self, chat):
 		del self.Prison[chat]

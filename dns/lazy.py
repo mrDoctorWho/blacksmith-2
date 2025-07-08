@@ -7,51 +7,65 @@
 #
 
 # routines for lazy people.
-import Base
+from . import Base # dns.Base will be used, so its members need to be qualified.
+# Type and other constants are usually imported from their respective modules directly if needed.
 
-from Base import DNSError
+from .Base import DNSError # DNSError is an exception, name is fine.
 
-def revlookup(name):
+def reverse_lookup_single(ip_address_string): # Renamed revlookup, name
     """
     Convenience routine for doing a reverse lookup of an address.
+    Returns the first (often shortest) PTR record found, or None.
     """
-    names = revlookupall(name)
-    if not names:
+    ptr_records = reverse_lookup_all(ip_address_string) # Use new name
+    if not ptr_records:
         return None
-    return names[0] # return shortest name
+    return ptr_records[0]
 
-def revlookupall(name):
+def reverse_lookup_all(ip_address_string): # Renamed revlookupall, name
     """
     Convenience routine for doing a reverse lookup of an address.
+    Returns a sorted list of all PTR records found.
     """
-    # FIXME: check for IPv6
-    a = name.split('.')
-    a.reverse()
-    b = '.'.join(a) + '.in-addr.arpa'
-    return sorted(dnslookup(b, qtype='ptr'), key=str.__len__)
+    # FIXME: check for IPv6 (original comment)
+    address_parts = ip_address_string.split('.') # Renamed a
+    address_parts.reverse()
+    reversed_domain_string = '.'.join(address_parts) + '.in-addr.arpa' # Renamed b
+    # Type.PTR would be better if Type was imported and refactored to RECORD_TYPE_PTR
+    return sorted(dns_lookup(reversed_domain_string, qtype='ptr'), key=str.__len__) # Use new name
 
-def dnslookup(name, qtype):
+def dns_lookup(query_name, query_type_str): # Renamed dnslookup, name, qtype
     """
     Convenience routine to return just answer data for any query type.
     """
-    if Base.defaults['server'] == []:
-        Base.DiscoverNameServers()
-    result = Base.DnsRequest(name=name, qtype=qtype).req()
-    if result.header['status'] != 'NOERROR':
-        raise DNSError("dns query status: %s" % result.header['status'])
-    elif not result.answers and Base.defaults['server_rotate']:
-        # check with next dns server
-        result = Base.DnsRequest(name=name, qtype=qtype).req()
-    if result.header['status'] != 'NOERROR':
-        raise DNSError("dns query status: %s" % result.header['status'])
-    return map(lambda x: x['data'], result.answers)
+    # Uses renamed globals from Base.py
+    if not Base.DEFAULT_DNS_SETTINGS['server']: # Check if server list is empty
+        Base.discover_name_servers()
 
-def mxlookup(name):
+    # Uses renamed DnsQuery from Base.py
+    dns_query_obj = Base.DnsQuery(name=query_name, qtype=query_type_str) # Renamed result
+    query_result = dns_query_obj.send_request() # Renamed req
+
+    if query_result.header['status'] != 'NOERROR': # NOERROR should ideally be a constant like Status.STATUS_NO_ERROR
+        raise DNSError("dns query status: %s" % query_result.header['status'])
+    # Original logic to retry with next server if server_rotate is on and no answers
+    elif not query_result.answers and Base.DEFAULT_DNS_SETTINGS.get('server_rotate'):
+        # This retry logic might be problematic if the server list is exhausted or if the first server gave a valid empty answer.
+        # For now, preserving original behavior.
+        dns_query_obj_retry = Base.DnsQuery(name=query_name, qtype=query_type_str)
+        query_result = dns_query_obj_retry.send_request()
+
+    if query_result.header['status'] != 'NOERROR':
+        raise DNSError("dns query status: %s" % query_result.header['status'])
+    return [answer_data_dict['data'] for answer_data_dict in query_result.answers] # Renamed x
+
+def mx_lookup(domain_name_str): # Renamed mxlookup, name
     """
     Convenience routine for doing an MX lookup of a name. returns a
     sorted list of (preference, mail exchanger) records.
     """
-    return sorted(dnslookup(name, qtype='mx'))
+    # Type.MX would be better
+    return sorted(dns_lookup(domain_name_str, qtype='mx')) # Use new name
 
 #
 # $Log: lazy.py,v $

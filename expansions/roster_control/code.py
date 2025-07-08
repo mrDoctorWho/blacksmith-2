@@ -5,6 +5,8 @@
 #  Id: 23~4c
 #  Code © (2011-2013) by WitcherGeralt [alkorgun@gmail.com]
 
+import ast
+
 class expansion_temp(expansion):
 
 	def __init__(self, name):
@@ -48,7 +50,7 @@ class expansion_temp(expansion):
 										Roster.setItem(arg2, (arg2.split("@"))[0], ["Users"])
 									answer = AnsBase[4]
 								elif arg0 == "-":
-									if arg2 in Clients[Name].Roster.keys():
+									if arg2 in list(Clients[Name].Roster.keys()):
 										Roster.Unauthorize(arg2)
 										Roster.Unsubscribe(arg2)
 										Roster.delItem(arg2)
@@ -66,7 +68,7 @@ class expansion_temp(expansion):
 				else:
 					Roster = getattr(Clients[Name], "Roster")
 					if Roster:
-						jids = Roster.keys()
+						jids = list(Roster.keys())
 						for jid in jids:
 							if ("@conference." in jid):
 								jids.remove(jid)
@@ -77,7 +79,7 @@ class expansion_temp(expansion):
 							Grps = Roster.getGroups(jid)
 							if Grps:
 								Gp = sorted(Grps)[0]
-								if not Groups.has_key(Gp):
+								if Gp not in Groups:
 									Groups[Gp] = []
 							else:
 								Gp = None
@@ -100,7 +102,7 @@ class expansion_temp(expansion):
 				answer = self.AnsBase[2]
 		else:
 			answer = enumerated_list(cls)
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_roster_state(self, stype, source, body, disp):
@@ -127,8 +129,22 @@ class expansion_temp(expansion):
 		Answer(answer, stype, source, disp)
 
 	def init_roster_state(self):
-		if initialize_file(self.RosterFile, str(True)):
-			Roster["on"] = eval(get_file(self.RosterFile))
+		# Default to True, as per original initialize_file(..., str(True))
+		roster_on_state = True
+		if initialize_file(self.RosterFile, str(roster_on_state)):
+			file_content = get_file(self.RosterFile)
+			if file_content:
+				try:
+					evaluated_content = ast.literal_eval(file_content)
+					if isinstance(evaluated_content, bool):
+						roster_on_state = evaluated_content
+					else:
+						Print(f"Error: Roster file {self.RosterFile} has invalid format. Expected a boolean. Using default: {roster_on_state}.", COLOR_RED)
+				except (ValueError, SyntaxError) as e:
+					Print(f"Error loading roster file {self.RosterFile}: {e}. Using default: {roster_on_state}.", COLOR_RED)
+			# If file is empty, it will also use the default roster_on_state initialized above.
+			Roster["on"] = roster_on_state
+
 
 	commands = (
 		(command_roster, "roster", 7,),

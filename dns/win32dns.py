@@ -20,96 +20,129 @@ Todo:
 """
 
 import re
-import _winreg
+import winreg
 
-def binipdisplay(s):
+def binary_ip_to_list_of_strings(binary_ip_data): # Renamed binipdisplay, s
     """
-    Convert a binary array of ip adresses to a python list.
+    Convert a binary array of ip adresses to a python list of strings.
     """
-    if len(s) % 4:
-        raise EnvironmentError() # well ...
-    ol = []
-    for i in range(len(s) / 4):
-        s1 = s[:4]
-        s = s[4:]
-        ip = []
-        for j in s1:
-            ip.append(str(ord(j)))
-        ol.append('.'.join(ip))
-    return ol
+    if len(binary_ip_data) % 4: # Each IPv4 address is 4 bytes
+        raise EnvironmentError("Binary IP data length is not a multiple of 4")
 
-def stringdisplay(s):
-    '''
-    Convert "d.d.d.d,d.d.d.d" to ["d.d.d.d","d.d.d.d"].
-    Also handle u'd.d.d.d d.d.d.d', as reporting on SF.
-    '''
-    return map(str, re.split("[ ,]", s))
+    ip_address_list = [] # Renamed ol
+    for i in range(len(binary_ip_data) // 4): # Use integer division
+        start_index = i * 4
+        single_ip_bytes = binary_ip_data[start_index : start_index + 4] # Renamed s1
 
-def RegistryResolve():
-    nameservers = []
-    x = _winreg.ConnectRegistry(None, _winreg.HKEY_LOCAL_MACHINE)
+        byte_string_parts = [] # Renamed ip
+        for byte_val in single_ip_bytes: # Renamed j
+            byte_string_parts.append(str(byte_val)) # ord() is not needed for bytes iteration in Py3
+        ip_address_list.append('.'.join(byte_string_parts))
+    return ip_address_list
+
+def ip_string_to_list(ip_addresses_string): # Renamed stringdisplay, s
+    '''
+    Convert "d.d.d.d,d.d.d.d" or "d.d.d.d d.d.d.d" to ["d.d.d.d","d.d.d.d"].
+    '''
+    # Using re.split to handle both space and comma as delimiters
+    return [ip_str for ip_str in re.split(r"[ ,]+", ip_addresses_string) if ip_str]
+
+def get_windows_nameservers_from_registry(): # Renamed RegistryResolve
+    name_servers_list = [] # Renamed nameservers
+    registry_connection = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE) # Renamed x
+
     try:
-        y = _winreg.OpenKey(x,
-         r"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters")
-    except EnvironmentError: # so it isn't NT/2000/XP
-        # windows ME, perhaps?
-        try: # for Windows ME
-            y = _winreg.OpenKey(x, r"SYSTEM\CurrentControlSet\Services\VxD\MSTCP")
-            nameserver, dummytype = _winreg.QueryValueEx(y, 'NameServer')
-            if nameserver and not (nameserver in nameservers):
-                nameservers.extend(stringdisplay(nameserver))
+        # Path for NT/2000/XP
+        tcpip_parameters_key = winreg.OpenKey(registry_connection,
+                                           r"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters") # Renamed y
+    except EnvironmentError:
+        # Windows ME, perhaps?
+        try:
+            mcp_key = winreg.OpenKey(registry_connection, r"SYSTEM\CurrentControlSet\Services\VxD\MSTCP") # Renamed y
+            name_server_string, _ = winreg.QueryValueEx(mcp_key, 'NameServer') # Renamed nameserver, dummytype
+            if name_server_string and not any(ns in name_server_string for ns in name_servers_list): # More robust check
+                name_servers_list.extend(ip_string_to_list(name_server_string))
+            winreg.CloseKey(mcp_key)
         except EnvironmentError:
-            pass
-        return nameservers # no idea
+            pass # Could not open MSTCP key either
+        winreg.CloseKey(registry_connection) # Close outer connection
+        return name_servers_list
+
     try:
-        nameserver = _winreg.QueryValueEx(y, "DhcpNameServer")[0].split()
-    except:
-        nameserver = _winreg.QueryValueEx(y, "NameServer")[0].split()
-    if nameserver:
-        nameservers = nameserver
-    nameserver = _winreg.QueryValueEx(y, "NameServer")[0]
-    _winreg.CloseKey(y)
-    try: # for win2000
-        y = _winreg.OpenKey(x, r"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\DNSRegisteredAdapters")
-        for i in range(1000):
+        # Try DHCP configured NameServer first
+        dhcp_name_server_string, _ = winreg.QueryValueEx(tcpip_parameters_key, "DhcpNameServer") # Renamed nameserver
+        if dhcp_name_server_string: # If not empty
+             name_servers_list.extend(ip_string_to_list(dhcp_name_server_string))
+    except EnvironmentError: # DhcpNameServer not found, try static NameServer
+        try:
+            name_server_string, _ = winreg.QueryValueEx(tcpip_parameters_key, "NameServer") # Renamed nameserver
+            if name_server_string: # If not empty
+                name_servers_list.extend(ip_string_to_list(name_server_string))
+        except EnvironmentError:
+            pass # Static NameServer also not found
+
+    winreg.CloseKey(tcpip_parameters_key)
+
+    # For Win2k: iterate over DNSRegisteredAdapters
+    try:
+        dns_adapters_key = winreg.OpenKey(registry_connection, r"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\DNSRegisteredAdapters") # Renamed y
+        for i in range(1000): # Max 1000 adapters, arbitrary limit from original
             try:
-                n = _winreg.EnumKey(y, i)
-                z = _winreg.OpenKey(y, n)
-                dnscount, dnscounttype = _winreg.QueryValueEx(z, 'DNSServerAddressCount')
-                dnsvalues, dnsvaluestype = _winreg.QueryValueEx(z, 'DNSServerAddresses')
-                nameservers.extend(binipdisplay(dnsvalues))
-                _winreg.CloseKey(z)
-            except EnvironmentError:
-                break
-        _winreg.CloseKey(y)
-    except EnvironmentError:
-        pass
-#
-    try: # for whistler
-        y = _winreg.OpenKey(x, r"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces")
-        for i in range(1000):
-            try:
-                n = _winreg.EnumKey(y, i)
-                z = _winreg.OpenKey(y, n)
+                adapter_subkey_name = winreg.EnumKey(dns_adapters_key, i) # Renamed n
+                adapter_key = winreg.OpenKey(dns_adapters_key, adapter_subkey_name) # Renamed z
                 try:
-                    nameserver, dummytype = _winreg.QueryValueEx(z, 'NameServer')
-                    if nameserver and not (nameserver in nameservers):
-                        nameservers.extend(stringdisplay(nameserver))
+                    # Original code had dnscount, dnscounttype - these seem unused if DNSServerAddresses is read directly.
+                    # Assuming DNSServerAddresses is the binary data.
+                    dns_server_addresses_binary, _ = winreg.QueryValueEx(adapter_key, 'DNSServerAddresses') # Renamed dnsvalues, dnsvaluestype
+                    name_servers_list.extend(binary_ip_to_list_of_strings(dns_server_addresses_binary)) # Use new name
                 except EnvironmentError:
-                    pass
-                _winreg.CloseKey(z)
-            except EnvironmentError:
+                    pass # DNSServerAddresses not found for this adapter
+                finally:
+                    winreg.CloseKey(adapter_key)
+            except EnvironmentError: # No more adapter subkeys
                 break
-        _winreg.CloseKey(y)
+        winreg.CloseKey(dns_adapters_key)
     except EnvironmentError:
-        # print "Key Interfaces not found, just do nothing"
-        pass
-#
-    _winreg.CloseKey(x)
-    return nameservers
+        pass # DNSRegisteredAdapters key not found
+
+    # For Whistler (XP) and later: iterate over Interfaces
+    try:
+        interfaces_key = winreg.OpenKey(registry_connection, r"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces") # Renamed y
+        for i in range(1000): # Max 1000 interfaces
+            try:
+                interface_subkey_name = winreg.EnumKey(interfaces_key, i) # Renamed n
+                interface_key = winreg.OpenKey(interfaces_key, interface_subkey_name) # Renamed z
+                try:
+                    # Check both NameServer (static) and DhcpNameServer (dynamic) for each interface
+                    for reg_value_name in ("NameServer", "DhcpNameServer"):
+                        try:
+                            name_server_string, _ = winreg.QueryValueEx(interface_key, reg_value_name) # Renamed nameserver, dummytype
+                            if name_server_string: # If not empty or None
+                                parsed_ips = ip_string_to_list(name_server_string)
+                                for ip_addr in parsed_ips:
+                                    if ip_addr and ip_addr not in name_servers_list: # Avoid duplicates
+                                        name_servers_list.append(ip_addr)
+                        except EnvironmentError:
+                            pass # Value not found for this interface
+                finally:
+                    winreg.CloseKey(interface_key)
+            except EnvironmentError: # No more interface subkeys
+                break
+        winreg.CloseKey(interfaces_key)
+    except EnvironmentError:
+        pass # Interfaces key not found
+
+    winreg.CloseKey(registry_connection)
+
+    # Remove empty strings and duplicates, preserving order as much as possible
+    final_list = []
+    for ip in name_servers_list:
+        if ip and ip not in final_list:
+            final_list.append(ip)
+    return final_list
 
 if __name__ == "__main__":
-    print "Name servers:", RegistryResolve()
+    print("Name servers:", get_windows_nameservers_from_registry()) # Use new name
 
 #
 # $Log: win32dns.py,v $

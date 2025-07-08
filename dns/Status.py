@@ -9,37 +9,47 @@ This code is covered by the standard Python License. See LICENSE for details.
 Status values in message header
 """
 
-NOERROR   = 0 #   No Error                           [RFC 1035]
-FORMERR   = 1 #   Format Error                       [RFC 1035]
-SERVFAIL  = 2 #   Server Failure                     [RFC 1035]
-NXDOMAIN  = 3 #   Non-Existent Domain                [RFC 1035]
-NOTIMP    = 4 #   Not Implemented                    [RFC 1035]
-REFUSED   = 5 #   Query Refused                      [RFC 1035]
-YXDOMAIN  = 6 #   Name Exists when it should not     [RFC 2136]
-YXRRSET   = 7 #   RR Set Exists when it should not   [RFC 2136]
-NXRRSET   = 8 #   RR Set that should exist does not  [RFC 2136]
-NOTAUTH   = 9 #   Server Not Authoritative for zone  [RFC 2136]
-NOTZONE   = 10 #  Name not contained in zone         [RFC 2136]
-BADVERS   = 16 #  Bad OPT Version                    [RFC 2671]
-BADSIG    = 16 #  TSIG Signature Failure             [RFC 2845]
-BADKEY    = 17 #  Key not recognized                 [RFC 2845]
-BADTIME   = 18 #  Signature out of time window       [RFC 2845]
-BADMODE   = 19 #  Bad TKEY Mode                      [RFC 2930]
-BADNAME   = 20 #  Duplicate key name                 [RFC 2930]
-BADALG    = 21 #  Algorithm not supported            [RFC 2930]
+STATUS_NO_ERROR = 0 #   No Error                           [RFC 1035]
+STATUS_FORMAT_ERROR = 1 #   Format Error                       [RFC 1035]
+STATUS_SERVER_FAILURE = 2 #   Server Failure                     [RFC 1035]
+STATUS_NX_DOMAIN = 3 #   Non-Existent Domain                [RFC 1035]
+STATUS_NOT_IMPLEMENTED = 4 #   Not Implemented                    [RFC 1035]
+STATUS_REFUSED = 5 #   Query Refused                      [RFC 1035]
+STATUS_YX_DOMAIN = 6 #   Name Exists when it should not     [RFC 2136]
+STATUS_YX_RRSET = 7 #   RR Set Exists when it should not   [RFC 2136]
+STATUS_NX_RRSET = 8 #   RR Set that should exist does not  [RFC 2136]
+STATUS_NOT_AUTHORITATIVE = 9 #   Server Not Authoritative for zone  [RFC 2136]
+STATUS_NOT_ZONE = 10 #  Name not contained in zone         [RFC 2136]
+STATUS_BAD_OPT_VERSION = 16 #  Bad OPT Version                    [RFC 2671]
+STATUS_BAD_SIGNATURE = 16 #  TSIG Signature Failure             [RFC 2845] # Note: Duplicate value
+STATUS_BAD_KEY = 17 #  Key not recognized                 [RFC 2845]
+STATUS_BAD_TIME = 18 #  Signature out of time window       [RFC 2845]
+STATUS_BAD_MODE = 19 #  Bad TKEY Mode                      [RFC 2930]
+STATUS_BAD_NAME = 20 #  Duplicate key name                 [RFC 2930]
+STATUS_BAD_ALGORITHM = 21 #  Algorithm not supported            [RFC 2930]
 
 # Construct reverse mapping dictionary
+__all__ = [
+    'STATUS_NO_ERROR', 'STATUS_FORMAT_ERROR', 'STATUS_SERVER_FAILURE',
+    'STATUS_NX_DOMAIN', 'STATUS_NOT_IMPLEMENTED', 'STATUS_REFUSED',
+    'STATUS_YX_DOMAIN', 'STATUS_YX_RRSET', 'STATUS_NX_RRSET',
+    'STATUS_NOT_AUTHORITATIVE', 'STATUS_NOT_ZONE', 'STATUS_BAD_OPT_VERSION',
+    'STATUS_BAD_SIGNATURE', 'STATUS_BAD_KEY', 'STATUS_BAD_TIME',
+    'STATUS_BAD_MODE', 'STATUS_BAD_NAME', 'STATUS_BAD_ALGORITHM'
+]
 
-_names = dir()
-statusmap = {}
-for _name in _names:
-    if _name[0] != '_':
-        statusmap[eval(_name)] = _name
+STATUS_CODE_MAP = {}
+# Populate carefully due to duplicate numeric values (BADVERS and BADSIG are both 16)
+# The last one defined for a given number will be what repr(number) maps to.
+# For a more robust mapping from number to a single canonical string, this might need adjustment.
+for name_val in __all__:
+    if name_val.startswith("STATUS_"):
+        STATUS_CODE_MAP[globals()[name_val]] = name_val
 
-def statusstr(status):
-    if status in statusmap:
-        return statusmap[status]
-    return repr(status)
+def get_status_string(status_code_val): # Renamed statusstr and status
+    if status_code_val in STATUS_CODE_MAP:
+        return STATUS_CODE_MAP[status_code_val]
+    return repr(status_code_val)
 
 #
 # $Log: Status.py,v $

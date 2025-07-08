@@ -22,7 +22,7 @@ class expansion_temp(expansion):
 				z = int(x)
 				if body and isNumber(body[0]):
 					y = int(body.pop(0))
-		if z not in xrange(1, 13):
+		if z not in range(1, 13):
 			y = (date.tm_year)
 			z = (date.tm_mon)
 		elif y <= 0:

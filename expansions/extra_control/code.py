@@ -22,7 +22,7 @@ class expansion_temp(expansion):
 						for numb, body in enumerate(ls):
 							body = body.split(None, 1)
 							cmd = (body.pop(0)).lower()
-							if Cmds.has_key(cmd):
+							if cmd in Cmds:
 								if body:
 									body = body[0]
 								else:
@@ -40,7 +40,7 @@ class expansion_temp(expansion):
 				answer = AnsBase[2]
 		else:
 			answer = AnsBase[1]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_remote(self, stype, source, body, disp):
@@ -74,7 +74,7 @@ class expansion_temp(expansion):
 						else:
 							body = ""
 						if 2048 >= len(body):
-							if Cmds.has_key(cmd):
+							if cmd in Cmds:
 								cmd = Cmds[cmd]
 								if cmd.isAvalable and cmd.handler:
 									if stype_ == sBase[1]:
@@ -101,15 +101,15 @@ class expansion_temp(expansion):
 				answer = AnsBase[2]
 		else:
 			answer = enumerated_list(confs)
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_private(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				body = body.split(None, 1)
 				cmd = (body.pop(0)).lower()
-				if Cmds.has_key(cmd):
+				if cmd in Cmds:
 					if body:
 						body = body[0]
 					else:
@@ -121,18 +121,18 @@ class expansion_temp(expansion):
 				answer = AnsBase[1]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	pointer = chr(62)*2
 
 	def command_redirect(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				if body.count(self.pointer) == True:
 					body = body.split(None, 1)
 					cmd = (body.pop(0)).lower()
-					if Cmds.has_key(cmd):
+					if cmd in Cmds:
 						cmd = Cmds[cmd]
 						if enough_access(source[1], source[2], cmd.access):
 							if cmd.isAvalable and cmd.handler:

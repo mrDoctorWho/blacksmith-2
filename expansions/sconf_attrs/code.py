@@ -14,12 +14,12 @@ class expansion_temp(expansion):
 		body = body.split()
 		if len(body) >= 1:
 			disp_ = (body.pop(0)).lower()
-			if Clients.has_key(disp_):
+			if disp_ in Clients:
 				if body:
 					conf = (body.pop(0)).lower()
 				else:
 					conf = source[1]
-				if Chats.has_key(conf):
+				if conf in Chats:
 					if Chats[conf].disp != disp_:
 						if online(disp_):
 							Chats[conf].leave(self.AnsBase[3])
@@ -43,7 +43,7 @@ class expansion_temp(expansion):
 		Answer(answer, stype, source, disp)
 
 	def command_botnick(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				Nick = sub_desc(body, [(chr(32), chr(95)), chr(10), chr(13), chr(9)]).strip()
 				if len(Nick) <= 16:
@@ -60,7 +60,7 @@ class expansion_temp(expansion):
 		Answer(answer, stype, source, disp)
 
 	def command_prefix(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				if enough_access(source[1], source[2], 6):
 					body = body.lower()
@@ -99,25 +99,25 @@ class expansion_temp(expansion):
 			body = body.split(None, 2)
 			if len(body) == 3:
 				state = (body.pop(1)).lower()
-				if self.StatusDesc.has_key(state):
+				if state in self.StatusDesc:
 					state = sList[self.StatusDesc[state]]
 				if state in sList:
 					chat, status = body
 					body = "%s|%s" % (state, status)
 					chat = chat.lower()
 					if chat in ("everywhere", "везде".decode("utf-8")):
-						for conf in Chats.itervalues():
+						for conf in Chats.values():
 							conf.change_status(state, status)
 							cat_file(chat_file(conf.name, self.ChatStatus), body)
 						answer = AnsBase[4]
 					elif chat in ("here", "здесь".decode("utf-8")):
-						if Chats.has_key(source[1]):
+						if source[1] in Chats:
 							Chats[source[1]].change_status(state, status)
 							cat_file(chat_file(source[1], self.ChatStatus), body)
 							answer = AnsBase[4]
 						else:
 							answer = AnsBase[0]
-					elif Chats.has_key(chat):
+					elif chat in Chats:
 						Chats[chat].change_status(state, status)
 						cat_file(chat_file(chat, self.ChatStatus), body)
 						answer = AnsBase[4]
@@ -132,7 +132,7 @@ class expansion_temp(expansion):
 		Answer(answer, stype, source, disp)
 
 	def command_password(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				if body in ("none", "нет".decode("utf-8")):
 					body = None

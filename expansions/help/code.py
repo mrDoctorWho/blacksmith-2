@@ -13,7 +13,7 @@ class expansion_temp(expansion):
 	def command_location(self, stype, source, body, disp):
 		if body:
 			command = body.lower()
-			if Cmds.has_key(command):
+			if command in Cmds:
 				answer = self.AnsBase[0] % (command, Cmds[command].exp.name.upper())
 			else:
 				answer = AnsBase[6]
@@ -24,7 +24,7 @@ class expansion_temp(expansion):
 	def command_comacc(self, stype, source, body, disp):
 		if body:
 			command = body.lower()
-			if Cmds.has_key(command):
+			if command in Cmds:
 				answer = self.AnsBase[1] % (command, Cmds[command].access)
 			else:
 				answer = AnsBase[6]
@@ -38,7 +38,7 @@ class expansion_temp(expansion):
 		if body:
 			body = body.split(None, 1)
 			command = (body.pop(0)).lower()
-			if Cmds.has_key(command):
+			if command in Cmds:
 				if body:
 					lang = (body.pop(0)).lower()
 					if len(lang) == 2 and all([(char in CharCase[1]) for char in lang]):
@@ -59,7 +59,7 @@ class expansion_temp(expansion):
 								for line in help:
 									line = line.strip()
 									if line.startswith("*/"):
-										Char, line = unichr(187)*3, line[2:].lstrip()
+										Char, line = chr(187)*3, line[2:].lstrip()
 									else:
 										Char = (chr(9) + chr(42))
 									ls.append("%s %s" % (Char, line))
@@ -77,33 +77,33 @@ class expansion_temp(expansion):
 		Answer(answer, stype, source, disp)
 
 	def command_commands(self, stype, source, body, disp):
-		answer = self.AnsBase[6] % (self.AnsBase[7] % (Chats[source[1]].cPref) if (Chats.has_key(source[1]) and Chats[source[1]].cPref) else ":")
+		answer = self.AnsBase[6] % (self.AnsBase[7] % (Chats[source[1]].cPref) if (source[1] in Chats and Chats[source[1]].cPref) else ":")
 		cmds, lcmds = {}, {}
-		for x in xrange(1, 9):
+		for x in range(1, 9):
 			lcmds[x] = itypes.Number()
-		for cmd in Cmds.keys():
+		for cmd in list(Cmds.keys()):
 			access = Cmds[cmd].access
 			cmds.setdefault(access, []).append(cmd)
-			for x in lcmds.keys():
+			for x in list(lcmds.keys()):
 				if x >= access:
 					lcmds[x].plus()
-		for ls in cmds.itervalues():
+		for ls in cmds.values():
 			ls.sort()
-		if cmds.has_key(8):
+		if 8 in cmds:
 			answer += self.AnsBase[8] % (lcmds[8], ", ".join(cmds[8]))
-		if cmds.has_key(7):
+		if 7 in cmds:
 			answer += self.AnsBase[9] % (lcmds[7], ", ".join(cmds[7]))
-		if cmds.has_key(6):
+		if 6 in cmds:
 			answer += self.AnsBase[10] % (lcmds[6], ", ".join(cmds[6]))
-		if cmds.has_key(5):
+		if 5 in cmds:
 			answer += self.AnsBase[11] % (lcmds[5], ", ".join(cmds[5]))
-		if cmds.has_key(4):
+		if 4 in cmds:
 			answer += self.AnsBase[12] % (lcmds[4], ", ".join(cmds[4]))
-		if cmds.has_key(3):
+		if 3 in cmds:
 			answer += self.AnsBase[13] % (lcmds[3], ", ".join(cmds[3]))
-		if cmds.has_key(2):
+		if 2 in cmds:
 			answer += self.AnsBase[14] % (lcmds[2], ", ".join(cmds[2]))
-		if cmds.has_key(1):
+		if 1 in cmds:
 			answer += self.AnsBase[15] % (lcmds[1], ", ".join(cmds[1]))
 		access = get_access(source[1], source[2])
 		if access > 8:

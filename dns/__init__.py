@@ -11,19 +11,19 @@
 
 __version__ = '2.3.5'
 
-import Type
-import Opcode
-import Status
-import Class
+from . import Type
+from . import Opcode
+from . import Status
+from . import Class
 
-from Base import DnsRequest, DNSError
-from Lib import DnsResult
-from Base import *
-from Lib import *
-Error = DNSError
-from lazy import *
-Request = DnsRequest
-Result = DnsResult
+from .Base import DnsQuery, DNSError # Renamed DnsRequest
+from .Lib import DnsQueryResult # Renamed DnsResult
+from .Base import * # Imports from Base (already refactored names)
+from .Lib import *  # Imports from Lib (already refactored names)
+Error = DNSError # This is fine as DNSError is an exception name
+from .lazy import * # lazy.py will need refactoring later
+DNSQuery = DnsQuery     # Renamed Request, DnsRequest
+DNSQueryResult = DnsQueryResult # Renamed Result, DnsResult
 
 #
 # $Log: __init__.py,v $

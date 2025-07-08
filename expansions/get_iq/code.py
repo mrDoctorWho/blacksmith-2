@@ -13,7 +13,7 @@ class expansion_temp(expansion):
 	def command_ping(self, stype, source, instance, disp):
 		if instance:
 			source_ = instance
-			if Chats.has_key(source[1]) and Chats[source[1]].isHere(instance):
+			if source[1] in Chats and Chats[source[1]].isHere(instance):
 				if Chats[source[1]].isHereTS(instance):
 					conf_nick = (source[1], instance)
 					instance, source_ = "%s/%s" % conf_nick, get_source(*conf_nick)
@@ -32,7 +32,7 @@ class expansion_temp(expansion):
 		if xmpp.isResultNode(stanza):
 			answer = round(time.time() - start, 3)
 			if source_:
-				if not self.PingStats.has_key(source_):
+				if source_ not in self.PingStats:
 					self.PingStats[source_] = []
 				self.PingStats[source_].append(answer)
 			Answer(self.AnsBase[0] % str(answer), stype, source, disp)
@@ -46,7 +46,7 @@ class expansion_temp(expansion):
 		if xmpp.isResultNode(stanza):
 			answer = round(time.time() - start, 3)
 			if source_:
-				if not self.PingStats.has_key(source_):
+				if source_ not in self.PingStats:
 					self.PingStats[source_] = []
 				self.PingStats[source_].append(answer)
 			Name = "[None]"
@@ -62,13 +62,13 @@ class expansion_temp(expansion):
 
 	def command_ping_stats(self, stype, source, source_, disp):
 		if source_:
-			if Chats.has_key(source[1]) and Chats[source[1]].isHere(source_):
+			if source[1] in Chats and Chats[source[1]].isHere(source_):
 				source_ = get_source(source[1], source_)
 			else:
 				source_ = source_.lower()
 		else:
 			source_ = get_source(source[1], source[2])
-		if source_ and self.PingStats.has_key(source_):
+		if source_ and source_ in self.PingStats:
 			Number = float(sum(self.PingStats[source_]))
 			len_ = len(self.PingStats[source_])
 			max_ = max(self.PingStats[source_])
@@ -83,7 +83,7 @@ class expansion_temp(expansion):
 
 	def command_time(self, stype, source, instance, disp):
 		if instance:
-			if Chats.has_key(source[1]) and Chats[source[1]].isHere(instance):
+			if source[1] in Chats and Chats[source[1]].isHere(instance):
 				if Chats[source[1]].isHereTS(instance):
 					instance = "%s/%s" % (source[1], instance)
 				else:
@@ -145,7 +145,7 @@ class expansion_temp(expansion):
 
 	def command_version(self, stype, source, instance, disp):
 		if instance:
-			if Chats.has_key(source[1]) and Chats[source[1]].isHere(instance):
+			if source[1] in Chats and Chats[source[1]].isHere(instance):
 				if Chats[source[1]].isHereTS(instance):
 					instance = "%s/%s" % (source[1], instance)
 				else:
@@ -177,7 +177,7 @@ class expansion_temp(expansion):
 
 	def command_vcard(self, stype, source, instance, disp):
 		if instance:
-			if Chats.has_key(source[1]) and Chats[source[1]].isHere(instance):
+			if source[1] in Chats and Chats[source[1]].isHere(instance):
 				if Chats[source[1]].isHereTS(instance):
 					instance = "%s/%s" % (source[1], instance)
 				else:
@@ -235,7 +235,7 @@ class expansion_temp(expansion):
 				answer = self.AnsBase[10]
 		else:
 			answer = self.AnsBase[6]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_uptime(self, stype, source, server, disp):
@@ -249,19 +249,19 @@ class expansion_temp(expansion):
 	def command_idle(self, stype, source, instance, disp):
 		if instance:
 			nick = instance
-			if Chats.has_key(source[1]) and Chats[source[1]].isHere(instance):
+			if source[1] in Chats and Chats[source[1]].isHere(instance):
 				if Chats[source[1]].isHereTS(instance):
 					instance = "%s/%s" % (source[1], instance)
 				else:
 					answer = self.AnsBase[5] % (instance)
-			if not locals().has_key(sBase[6]):
+			if sBase[6] not in locals():
 				iq = xmpp.Iq(sBase[10], to = instance)
 				iq.addChild(sBase[18], namespace = xmpp.NS_LAST)
 				iq.setID("Bs-i%d" % Info["outiq"].plus())
 				CallForResponse(disp, iq, self.answer_idle, {"stype": stype, "source": source, "instance": nick, "typ": True})
 		else:
 			answer = AnsBase[1]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def answer_idle(self, disp, stanza, stype, source, instance, typ):
@@ -269,7 +269,7 @@ class expansion_temp(expansion):
 			seconds = stanza.getTagAttr(sBase[18], "seconds")
 			if seconds and seconds != "0" and isNumber(seconds):
 				answer = (self.AnsBase[8] if typ else self.AnsBase[7]) % (instance, Time2Text(int(seconds)))
-		if not locals().has_key(sBase[6]):
+		if sBase[6] not in locals():
 			answer = self.AnsBase[6]
 		Answer(answer, stype, source, disp)
 
@@ -285,7 +285,7 @@ class expansion_temp(expansion):
 						return self.affs[numb]
 			return (body if body in self.affs else None)
 
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				ls = body.split()
 				body = (ls.pop(0)).lower()
@@ -301,13 +301,13 @@ class expansion_temp(expansion):
 							iq.addChild(node = query)
 							iq.setID("Bs-i%d" % Info["outiq"].plus())
 							CallForResponse(disp, iq, self.answer_aflist_search, {"desc": desc, "role": role, "data": data})
-						for x in xrange(60):
+						for x in range(60):
 							sleep(0.2)
-							if len(desc.keys()) == 4:
+							if len(list(desc.keys())) == 4:
 								break
 						Number = itypes.Number()
 						ls = []
-						for role, matches in desc.iteritems():
+						for role, matches in desc.items():
 							if matches:
 								ls.append(role.capitalize() + "s:")
 								for jid in matches:
@@ -344,7 +344,7 @@ class expansion_temp(expansion):
 				answer = AnsBase[1]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def answer_aflist_search(self, disp, stanza, desc, role, data):
@@ -384,7 +384,7 @@ class expansion_temp(expansion):
 				answer = self.AnsBase[6]
 		else:
 			answer = self.AnsBase[6]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	XEPs.add(xmpp.NS_STATS)

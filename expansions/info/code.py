@@ -43,7 +43,7 @@ class expansion_temp(expansion):
 			Answer(self.AnsBase[6], stype, source, disp)
 
 	def command_inmuc(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			ls, Numb, access = self.AnsBase[8], itypes.Number(), enough_access(source[1], source[2], 4)
 			owners, admins, members, none = [], [], [], []
 			for nick in Chats[source[1]].sorted_users():
@@ -82,7 +82,7 @@ class expansion_temp(expansion):
 			Answer(AnsBase[0], stype, source, disp)
 
 	def command_visitors(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				body = body.lower()
 			if body in ("today", "сегодня".decode("utf-8")):
@@ -153,7 +153,7 @@ class expansion_temp(expansion):
 					answer = self.AnsBase[4]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	CharsCY = "етуоранкхсвм".decode("utf-8")
@@ -185,7 +185,7 @@ class expansion_temp(expansion):
 				answer = self.AnsBase[10]
 		else:
 			answer = AnsBase[1]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	commands = (

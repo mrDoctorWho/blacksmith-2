@@ -5,6 +5,8 @@
 #  Id: 19~9c
 #  Code © (2011-2013) by WitcherGeralt [alkorgun@gmail.com]
 
+import ast
+
 class expansion_temp(expansion):
 
 	def __init__(self, name):
@@ -44,20 +46,34 @@ class expansion_temp(expansion):
 							data = data.replace(chr(95), chr(32))
 						ConfigDesc.setdefault(title, {})[opt] = data
 			if ConfigDesc:
-				for (title, opts) in ConfigDesc.items():
-					for (opt, data) in opts.items():
+				for (title, opts) in list(ConfigDesc.items()):
+					for (opt, data) in list(opts.items()):
 						GenCon.set(title, opt, data)
 						if opt in self.opts:
-							if opt not in self.opts[-2:]:
-								data = eval(data)
-								if opt == self.opts[0]:
-									data *= 1024
-									data = (32768 if (data and data <= 32768) else data)
-							globals()[self.optsGlobEq[self.opts.index(opt)]] = data
+							original_data_for_globals = data # Store original string for globals update if ast.literal_eval fails
+							if opt not in self.opts[-2:]: # Options like TLS, MSERVE, GETEXC, MEMORY, INCOMING, CHAT, PRIVATE
+								try:
+									# For these options, data should be a Python literal (bool, int)
+									evaluated_data = ast.literal_eval(data)
+									if opt == self.opts[0]: # memory
+										evaluated_data *= 1024
+										evaluated_data = (32768 if (evaluated_data and evaluated_data <= 32768) else evaluated_data)
+									original_data_for_globals = evaluated_data # Use evaluated for globals
+								except (ValueError, SyntaxError):
+									# If literal_eval fails, it might be a string for STATUS/RESOURCE,
+									# or an invalid value for bool/int.
+									# The original string 'data' will be used for globals,
+									# which is fine for STATUS/RESOURCE.
+									# For bool/int options, this might lead to type errors later if not handled by prior checks.
+									# However, the original code used eval, so this is at least safer.
+									Print(f"Warning: Could not parse value '{data}' for config option '{opt}' as a literal. Using raw string.", COLOR_YELLOW)
+									pass # original_data_for_globals remains the string 'data'
+							# For STATUS and RESOURCE (self.opts[-2:]), data is used as a string directly.
+							globals()[self.optsGlobEq[self.opts.index(opt)]] = original_data_for_globals
 				cat_file(GenConFile, self.get_config(GenCon))
 				ls = []
-				for opts in ConfigDesc.values():
-					ls.extend(opts.keys())
+				for opts in list(ConfigDesc.values()):
+					ls.extend(list(opts.keys()))
 				answer = self.AnsBase[0] % (", ".join([opt.upper() for opt in ls]))
 			else:
 				answer = self.AnsBase[1]
@@ -65,7 +81,7 @@ class expansion_temp(expansion):
 			Message(source[0], self.AnsBase[2] + self.get_config(GenCon), disp)
 			if stype == sBase[1]:
 				answer = AnsBase[11]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_cls_config(self, stype, source, body, disp):
@@ -75,9 +91,9 @@ class expansion_temp(expansion):
 				body = (args.pop(0)).lower()
 				if body in ("del", "удалить".decode("utf-8")):
 					Name = (args.pop(0)).lower()
-					if InstancesDesc.has_key(Name):
-						clients = Clients.keys()
-						if not Clients.has_key(Name) or len(clients) >= 2:
+					if Name in InstancesDesc:
+						clients = list(Clients.keys())
+						if Name not in Clients or len(clients) >= 2:
 							if Name == GenDisp:
 								clients.remove(GenDisp)
 								Gen = choice(clients)
@@ -97,12 +113,12 @@ class expansion_temp(expansion):
 								for x in ConDisp.sections():
 									if Gen == client_config(ConDisp, x)[0]:
 										ConDisp.remove_section(x)
-							if Clients.has_key(Name):
+							if Name in Clients:
 								thrName = "%s-%s" % (sBase[13], Name)
 								for thr in ithr.enumerate():
 									if thrName == thr.getName():
 										thr.kill()
-							for conf in Chats.itervalues():
+							for conf in Chats.values():
 								if conf.disp == Name:
 									if online(Name):
 										Message(conf.name, self.AnsBase[4], Name)
@@ -117,14 +133,14 @@ class expansion_temp(expansion):
 									Clients[Name].disconnect()
 								except IOError:
 									pass
-							if Guard.has_key(Name):
+							if Name in Guard:
 								del Guard[Name]
 							del InstancesDesc[Name]
 							for x in ConDisp.sections():
 								if Name == client_config(ConDisp, x)[0]:
 									ConDisp.remove_section(x)
 							cat_file(ConDispFile, self.get_config(ConDisp))
-							if Clients.has_key(Name):
+							if Name in Clients:
 								del Clients[Name]
 							answer = AnsBase[4]
 						else:
@@ -146,8 +162,8 @@ class expansion_temp(expansion):
 						serv = (host)
 						if args:
 							serv = (args.pop(0)).lower()
-						if not Clients.has_key(jid):
-							if not InstancesDesc.has_key(jid):
+						if jid not in Clients:
+							if jid not in InstancesDesc:
 								if connect_client(jid, (serv, port, host, user, code))[0]:
 									Numb = itypes.Number()
 									Name = "CLIENT%d" % (len(ConDisp.sections()) + Numb.plus())
@@ -167,7 +183,7 @@ class expansion_temp(expansion):
 									except RuntimeError:
 										answer = self.AnsBase[8]
 									else:
-										for conf in Chats.itervalues():
+										for conf in Chats.values():
 											if Instance == conf.disp:
 												conf.join()
 										answer = AnsBase[4]
@@ -181,7 +197,7 @@ class expansion_temp(expansion):
 						answer = AnsBase[2]
 				elif body in ("password", "пароль".decode("utf-8")):
 					Name = (args.pop(0)).lower()
-					if InstancesDesc.has_key(Name):
+					if Name in InstancesDesc:
 						if args:
 							code = (args.pop(0))
 							if args:
@@ -189,9 +205,9 @@ class expansion_temp(expansion):
 									changed = True
 						else:
 							code, symbols = "", "%s.%s_%s+(!}{#)" % (CharCase[0], CharCase[1], CharCase[2])
-							for x in xrange(24):
+							for x in range(24):
 								code += choice(symbols)
-						if locals().has_key("changed"):
+						if "changed" in locals():
 							self.answer_register(Name, xmpp.Iq(sBase[8]), stype, source, code, disp)
 						elif online(Name):
 							Disp = Clients[Name]
@@ -212,7 +228,7 @@ class expansion_temp(expansion):
 			Message(source[0], self.AnsBase[2] + self.get_config(ConDisp), disp)
 			if stype == sBase[1]:
 				answer = AnsBase[11]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source)
 
 	def answer_register(self, disp, stanza, stype, source, code, str_disp):

@@ -18,7 +18,7 @@ class expansion_temp(expansion):
 	db = lambda self, conf: database(cefile(chat_file(conf, self.TalkersFile)), self.TalkersDesc[conf])
 
 	def command_talkers(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				ls = body.split()
 				if len(ls) >= 2:
@@ -43,19 +43,19 @@ class expansion_temp(expansion):
 								answer = self.AnsBase[1]
 						elif a2 in ("global", "глобальный".decode("utf-8")):
 							Glob_dbs = {}
-							for conf in Chats.keys():
+							for conf in list(Chats.keys()):
 								with self.db(conf) as db:
 									db("select * from talkers order by -msgs")
 									db_desc = db.fetchmany(256)
 								for x in db_desc:
-									if Glob_dbs.has_key(x[0]):
+									if x[0] in Glob_dbs:
 										Glob_dbs[x[0]][2] += x[2]
 										Glob_dbs[x[0]][3] += x[3]
 									else:
 										Glob_dbs[x[0]] = list(x)
 							if Glob_dbs:
 								Top_list, limit = [], (Number if Number > 0 else 20)
-								for x, y in Glob_dbs.items():
+								for x, y in list(Glob_dbs.items()):
 									Top_list.append([y[2], y[3], y[1]])
 								del Glob_dbs
 								answer, Numb = self.AnsBase[0], itypes.Number()
@@ -74,7 +74,7 @@ class expansion_temp(expansion):
 
 						def get_talker_stats(source_):
 							x, y = 0, 0
-							for conf in Chats.keys():
+							for conf in list(Chats.keys()):
 								with self.db(conf) as db:
 									db("select * from talkers where jid=?", (source_,))
 									db_desc = db.fetchone()
@@ -104,19 +104,19 @@ class expansion_temp(expansion):
 								answer = get_talker_stats(source_)
 							else:
 								Glob_dbs = {}
-								for conf in Chats.keys():
+								for conf in list(Chats.keys()):
 									with self.db(conf) as db:
 										db("select * from talkers where (jid like ? or lastnick like ?) order by -msgs", (a2, a2))
 										db_desc = db.fetchmany(10)
 									for x in db_desc:
-										if Glob_dbs.has_key(x[0]):
+										if x[0] in Glob_dbs:
 											Glob_dbs[x[0]][2] += x[2]
 											Glob_dbs[x[0]][3] += x[3]
 										else:
 											Glob_dbs[x[0]] = x
 								if Glob_dbs:
 									Usr_list = []
-									for x, y in Glob_dbs.items():
+									for x, y in list(Glob_dbs.items()):
 										Usr_list.append([y[2], y[3], y[1]])
 									del Glob_dbs
 									answer, Numb = self.AnsBase[0], itypes.Number()

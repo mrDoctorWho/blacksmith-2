@@ -19,7 +19,7 @@ class expansion_temp(expansion):
 		while VarCache["alive"]:
 			sleep(120)
 			thrIds = ithr.getNames()
-			for disp_str, disp in Clients.iteritems():
+			for disp_str, disp in Clients.items():
 				if not hasattr(disp, "aKeeper"):
 					disp.aKeeper = itypes.Number()
 				if disp.aKeeper > 2:
@@ -35,7 +35,7 @@ class expansion_temp(expansion):
 						delivery(AnsBase[28] % (disp_str))
 					except Exception:
 						collectExc(ithr.Thread.start)
-				elif expansions.has_key(self.name):
+				elif self.name in expansions:
 					disp.aKeeper.plus()
 					iq = xmpp.Iq(sBase[10], to = "%s/%s" % (disp_str, GenResource))
 					iq.addChild(sBase[16], namespace = xmpp.NS_PING)
@@ -49,7 +49,7 @@ class expansion_temp(expansion):
 	def conf_alive_keeper(self):
 
 		def conf_alive_keeper_answer(disp, stanza, conf):
-			if Chats.has_key(conf):
+			if conf in Chats:
 				if xmpp.isErrorNode(stanza):
 					if eCodes[6] == stanza.getErrorCode():
 						Chats[conf].aKeeper = itypes.Number()
@@ -59,7 +59,7 @@ class expansion_temp(expansion):
 		while VarCache["alive"]:
 			sleep(360)
 			thrIds = ithr.getNames()
-			for conf in Chats.itervalues():
+			for conf in Chats.values():
 				if not (online(conf.disp) and conf.IamHere):
 					continue
 				if not hasattr(conf, "aKeeper"):
@@ -74,7 +74,7 @@ class expansion_temp(expansion):
 							pass
 						except Exception:
 							collectExc(ithr.Thread.start)
-				elif expansions.has_key(self.name):
+				elif self.name in expansions:
 					conf.aKeeper.plus()
 					iq = xmpp.Iq(sBase[10], to = "%s/%s" % (conf.name, conf.nick))
 					iq.addChild(sBase[18], namespace = xmpp.NS_PING)

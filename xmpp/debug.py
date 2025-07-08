@@ -22,27 +22,27 @@ import time
 
 from traceback import format_exception as traceback_format_exception
 
-colors_enabled = os.environ.has_key("TERM")
+COLORS_ENABLED = "TERM" in os.environ # Renamed colors_enabled
 
-color_none = chr(27) + "[0m"
-color_black = chr(27) + "[30m"
-color_red = chr(27) + "[31m"
-color_green = chr(27) + "[32m"
-color_brown = chr(27) + "[33m"
-color_blue = chr(27) + "[34m"
-color_magenta = chr(27) + "[35m"
-color_cyan = chr(27) + "[36m"
-color_light_gray = chr(27) + "[37m"
-color_dark_gray = chr(27) + "[30;1m"
-color_bright_red = chr(27) + "[31;1m"
-color_bright_green = chr(27) + "[32;1m"
-color_yellow = chr(27) + "[33;1m"
-color_bright_blue = chr(27) + "[34;1m"
-color_purple = chr(27) + "[35;1m"
-color_bright_cyan = chr(27) + "[36;1m"
-color_white = chr(27) + "[37;1m"
+COLOR_NONE = chr(27) + "[0m"
+COLOR_BLACK = chr(27) + "[30m"
+COLOR_RED = chr(27) + "[31m"
+COLOR_GREEN = chr(27) + "[32m" # Renamed color_green
+COLOR_BROWN = chr(27) + "[33m" # Renamed color_brown
+COLOR_BLUE = chr(27) + "[34m" # Renamed color_blue
+COLOR_MAGENTA = chr(27) + "[35m" # Renamed color_magenta
+COLOR_CYAN = chr(27) + "[36m" # Renamed color_cyan
+COLOR_LIGHT_GRAY = chr(27) + "[37m" # Renamed color_light_gray
+COLOR_DARK_GRAY = chr(27) + "[30;1m" # Renamed color_dark_gray
+COLOR_BRIGHT_RED = chr(27) + "[31;1m" # Renamed color_bright_red
+COLOR_BRIGHT_GREEN = chr(27) + "[32;1m" # Renamed color_bright_green
+COLOR_YELLOW = chr(27) + "[33;1m" # Renamed color_yellow
+COLOR_BRIGHT_BLUE = chr(27) + "[34;1m" # Renamed color_bright_blue
+COLOR_PURPLE = chr(27) + "[35;1m" # Renamed color_purple
+COLOR_BRIGHT_CYAN = chr(27) + "[36;1m"
+COLOR_WHITE = chr(27) + "[37;1m"
 
-class NoDebug:
+class NullDebugger(object): # Renamed NoDebug
 
 	def __init__(self, *args, **kwargs):
 		self.debug_flags = []
@@ -50,7 +50,7 @@ class NoDebug:
 	def show(self, *args, **kwargs):
 		pass
 
-	def Show(self, *args, **kwargs):
+	def show_formatted_message(self, *args, **kwargs): # Renamed Show
 		pass
 
 	def is_active(self, flag):
@@ -63,7 +63,7 @@ class NoDebug:
 
 LINE_FEED = "\n"
 
-class Debug:
+class Debugger(object): # Renamed Debug
 
 	def __init__(self, active_flags=None, log_file=sys.stderr, prefix="DEBUG: ", sufix="\n", time_stamp=0, flag_show=None, validate_flags=False, welcome=-1):
 		self.debug_flags = []
@@ -78,7 +78,7 @@ class Debug:
 				try:
 					self._fh = open(log_file, "w")
 				except Exception:
-					print("ERROR: can open %s for writing." % log_file)
+					print(("ERROR: can open %s for writing." % log_file))
 					sys.exit(0)
 			else: # assume its a stream type object
 				self._fh = log_file
@@ -162,8 +162,8 @@ class Debug:
 			self._fh.write(output)
 		except Exception:
 			# unicode strikes again ;)
-			s = u""
-			for i in xrange(len(output)):
+			s = ""
+			for i in range(len(output)):
 				if ord(output[i]) < 128:
 					c = output[i]
 				else:
@@ -281,20 +281,20 @@ class Debug:
 
 	colors = {}
 
-	def Show(self, flag, msg, prefix=""):
+	def show_formatted_message(self, flag, msg, prefix=""): # Renamed Show
 		msg = msg.replace("\r", "\\r").replace("\n", "\\n").replace("><", ">\n  <")
-		if not colors_enabled:
+		if not COLORS_ENABLED: # Use new name
 			pass
-		elif self.colors.has_key(prefix):
-			msg = self.colors[prefix] + msg + color_none
+		elif prefix in self.colors:
+			msg = self.colors[prefix] + msg + COLOR_NONE # Use new name
 		else:
-			msg = color_none + msg
-		if not colors_enabled:
+			msg = COLOR_NONE + msg # Use new name
+		if not COLORS_ENABLED: # Use new name
 			prefixcolor = ""
-		elif self.colors.has_key(flag):
+		elif flag in self.colors:
 			prefixcolor = self.colors[flag]
 		else:
-			prefixcolor = color_none
+			prefixcolor = COLOR_NONE # Use new name
 		if prefix == "error":
 			e = sys.exc_info()
 			if e[0]:
@@ -311,4 +311,7 @@ class Debug:
 
 DBG_ALWAYS = "always"
 
-# Debug=NoDebug # Uncomment this to effectively disable all debugging and all debugging overhead.
+# DEFAULT_DEBUG_INSTANCE = NullDebugger() # Renamed Debug=NoDebug
+# To effectively disable debugging, one would typically not assign a Debugger instance.
+# Or, the application logic that uses this would check if DEBUG_INSTANCE is None or a NullDebugger.
+# For now, I'll just rename and comment it out as per original, but this line's purpose might need review.

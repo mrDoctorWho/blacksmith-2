@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-if DefLANG in ("RU", "UA"):
-	AnsBase = tuple([line.decode("utf-8") for line in (
+if DEFAULT_LANGUAGE in ("RU", "UA"): # Use new name
+	ANSWER_TEMPLATES = tuple([line for line in ( # Renamed AnsBase, removed decode for Py3
 		"Данная команда доступна исключительно в конференциях.", # 0
 		"Данная команда подразумевает использование параметров.", # 1
 		"Инвалид синтакс.", # 2
@@ -35,7 +35,7 @@ if DefLANG in ("RU", "UA"):
 		"Это не число." # 30
 	)])
 else:
-	AnsBase = (
+	ANSWER_TEMPLATES = ( # Renamed AnsBase
 		"This command is available only in the conferences.", # 0
 		"This command implies arguments using.", # 1
 		"Invalid syntax.", # 2

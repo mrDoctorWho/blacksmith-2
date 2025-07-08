@@ -12,7 +12,7 @@ class expansion_temp(expansion):
 
 	def Check(self, conf):
 		Numb = itypes.Number()
-		while Chats.has_key(conf):
+		while conf in Chats:
 			if Chats[conf].IamHere != None:
 				break
 			sleep(0.4)
@@ -32,7 +32,7 @@ class expansion_temp(expansion):
 						confname = encode_filename(confname)
 					if not os.path.exists(confname):
 						try:
-							os.makedirs(confname, 0755)
+							os.makedirs(confname, 0o755)
 						except Exception:
 							confname = None
 					if confname:
@@ -43,7 +43,7 @@ class expansion_temp(expansion):
 								x = x.split("1=", 1)
 								if len(x) == 2 and x[1]:
 									x = x[1].lower()
-									if Clients.has_key(x):
+									if x in Clients:
 										disp_ = x
 							elif x.startswith("2="):
 								x = x.split("2=", 1)
@@ -68,7 +68,7 @@ class expansion_temp(expansion):
 						Chats[conf].load_all()
 						Chats[conf].join()
 						self.Check(conf)
-						if Chats.has_key(conf) and Chats[conf].IamHere:
+						if conf in Chats and Chats[conf].IamHere:
 							Message(conf, self.AnsBase[7] % (ProdName, source[2]), disp_)
 							answer = self.AnsBase[2] % (conf)
 						else:
@@ -91,13 +91,13 @@ class expansion_temp(expansion):
 			conf = body.split()[0].lower()
 		else:
 			conf = source[1]
-		if Chats.has_key(conf):
+		if conf in Chats:
 			if online(Chats[conf].disp):
 				Chats[conf].leave(self.AnsBase[8] % (source[2]))
 				sleep(2)
 				Chats[conf].join()
 				self.Check(conf)
-				if Chats.has_key(conf) and Chats[conf].IamHere:
+				if conf in Chats and Chats[conf].IamHere:
 					answer = AnsBase[4]
 				else:
 					answer = AnsBase[7]
@@ -113,7 +113,7 @@ class expansion_temp(expansion):
 		else:
 			conf = source[1]
 		if not body or enough_access(source[1], source[2], 7) or conf == source[1]:
-			if Chats.has_key(conf):
+			if conf in Chats:
 				source_ = get_source(source[1], source[2])
 				if GodName != source_:
 					delivery(self.AnsBase[4] % (source[2], source_, conf))
@@ -127,7 +127,7 @@ class expansion_temp(expansion):
 				answer = AnsBase[8]
 		else:
 			answer = AnsBase[10]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_reconnect(self, stype, source, body, disp):
@@ -135,9 +135,9 @@ class expansion_temp(expansion):
 			Name = body.split()[0].lower()
 		else:
 			Name = get_disp(disp)
-		if InstancesDesc.has_key(Name):
+		if Name in InstancesDesc:
 			thrName = "%s-%s" % (sBase[13], Name)
-			if Clients.has_key(Name):
+			if Name in Clients:
 				for thr in ithr.enumerate():
 					if thrName == thr.getName():
 						thr.kill()
@@ -152,7 +152,7 @@ class expansion_temp(expansion):
 				except RuntimeError:
 					answer = self.AnsBase[16]
 				else:
-					for conf in Chats.itervalues():
+					for conf in Chats.values():
 						if Name == conf.disp:
 							conf.join()
 					answer = AnsBase[4]
@@ -167,12 +167,12 @@ class expansion_temp(expansion):
 		if body.lower() not in ("-s", "silent", "тихо".decode("utf-8")):
 			if body:
 				exit_desclr += self.AnsBase[1] % (body)
-			for conf in Chats.itervalues():
+			for conf in Chats.values():
 				Message(conf.name, exit_desclr, conf.disp)
 		sleep(6)
 		VarCache["alive"] = False
 		ithr.killAllThreads()
-		for disp in Clients.keys():
+		for disp in list(Clients.keys()):
 			if online(disp):
 				sUnavailable(disp, exit_desclr)
 		call_sfunctions("03si")
@@ -183,12 +183,12 @@ class expansion_temp(expansion):
 		if body.lower() not in ("-s", "silent", "тихо".decode("utf-8")):
 			if body:
 				exit_desclr += self.AnsBase[1] % (body)
-			for conf in Chats.itervalues():
+			for conf in Chats.values():
 				Message(conf.name, exit_desclr, conf.disp)
 		sleep(6)
 		VarCache["alive"] = False
 		ithr.killAllThreads()
-		for disp in Clients.keys():
+		for disp in list(Clients.keys()):
 			if online(disp):
 				sUnavailable(disp, exit_desclr)
 		call_sfunctions("03si")

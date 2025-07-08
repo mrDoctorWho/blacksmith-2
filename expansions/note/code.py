@@ -49,7 +49,7 @@ class expansion_temp(expansion):
 									else:
 										answer = self.AnsBase[3]
 								else:
-									db("insert into note values (%s)" % (",".join(["?" for x in xrange(17)])), (source_, "[%s] %s" % (date, body), "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""))
+									db("insert into note values (%s)" % (",".join(["?" for x in range(17)])), (source_, "[%s] %s" % (date, body), "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""))
 									db.commit()
 									answer = AnsBase[4]
 						else:
@@ -58,7 +58,7 @@ class expansion_temp(expansion):
 						numb = ls.pop(0)
 						if isNumber(numb):
 							numb = int(numb)
-							if numb in xrange(1, 17):
+							if numb in range(1, 17):
 								with database(self.NoteFile) as db:
 									db("select * from note where jid=?", (source_,))
 									db_desc = db.fetchone()
@@ -112,7 +112,7 @@ class expansion_temp(expansion):
 	def init_note_file(self):
 		if not os.path.isfile(self.NoteFile):
 			with database(self.NoteFile) as db:
-				db("create table note (jid text, %s)" % (", ".join(["line_%s text" % (numb) for numb in xrange(1, 17)])))
+				db("create table note (jid text, %s)" % (", ".join(["line_%s text" % (numb) for numb in range(1, 17)])))
 				db.commit()
 
 	commands = ((command_note, "note", 2,),)

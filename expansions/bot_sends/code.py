@@ -21,7 +21,7 @@ class expansion_temp(expansion):
 					Chats[conf].change_status(sList[2], self.AnsBase[0])
 				zero = xmpp.Message(conf, typ = sBase[1])
 				zero.setBody("")
-				for Numb in xrange(24):
+				for Numb in range(24):
 					if conf not in Chats:
 						raise SelfExc("exit")
 					Sender(disp, zero); Info["omsg"].plus()
@@ -34,14 +34,14 @@ class expansion_temp(expansion):
 				answer = self.AnsBase[9]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_test(self, stype, source, body, disp):
 		errors = len(VarCache["errors"])
 		if not errors:
 			answer = self.AnsBase[1]
-		elif errors < (len(Clients.keys())*3):
+		elif errors < (len(list(Clients.keys()))*3):
 			answer = self.AnsBase[2] % (get_nick(source[1]), errors)
 		else:
 			answer = self.AnsBase[3] % (errors)
@@ -49,7 +49,7 @@ class expansion_temp(expansion):
 
 	def command_sendall(self, stype, source, body, disp):
 		if body:
-			for conf in Chats.keys():
+			for conf in list(Chats.keys()):
 				Message(conf, self.AnsBase[5] % (source[2], body))
 			answer = AnsBase[4]
 		else:
@@ -108,7 +108,7 @@ class expansion_temp(expansion):
 			Message(source[1], body[:ConfLimit], disp)
 
 	def command_invite(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				Time, admin = time.time(), enough_access(source[1], source[2], 7)
 				timer = (720 if admin else (Time - ChatsAttrs[source[1]]["intr"]))

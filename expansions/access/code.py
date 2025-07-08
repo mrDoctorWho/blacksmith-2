@@ -5,6 +5,8 @@
 #  Id: 20~3c
 #  Code © (2011) by WitcherGeralt [alkorgun@gmail.com]
 
+import ast
+
 class expansion_temp(expansion):
 
 	def __init__(self, name):
@@ -37,16 +39,16 @@ class expansion_temp(expansion):
 	def command_get_access(self, stype, source, body, disp):
 		if not body:
 			answer = self.AnsBase[0] % self.get_acc(get_access(source[1], source[2]))
-		elif Chats.has_key(source[1]):
+		elif source[1] in Chats:
 			if Chats[source[1]].isHere(body):
 				answer = self.AnsBase[1] % (body, self.get_acc(get_access(source[1], body)))
-			elif Galist.has_key(body):
+			elif body in Galist:
 				answer = self.AnsBase[1] % (body, self.get_acc(Galist.get(body, 0)))
-			elif Chats[source[1]].alist.has_key(body):
+			elif body in Chats[source[1]].alist:
 				answer = self.AnsBase[1] % (body, str(Chats[source[1]].alist.get(body, 0)))
 			else:
 				answer = self.AnsBase[2] % (body)
-		elif Galist.has_key(body):
+		elif body in Galist:
 			answer = self.AnsBase[1] % (body, self.get_acc(Galist.get(body, 0)))
 		else:
 			answer = self.AnsBase[2] % (body)
@@ -54,19 +56,19 @@ class expansion_temp(expansion):
 
 	def command_get_galist(self, stype, source, body, disp):
 		if Galist:
-			ls = sorted([(acc, user) for user, acc in Galist.iteritems()], reverse = True)
+			ls = sorted([(acc, user) for user, acc in Galist.items()], reverse = True)
 			if stype == sBase[1]:
 				answer = AnsBase[11]
 			Message(source[0], self.AnsBase[5] + enumerated_list("%s - %d" % (user, acc) for acc, user in ls), disp)
 		else:
 			answer = self.AnsBase[3]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_get_lalist(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if Chats[source[1]].alist:
-				ls = sorted([(acc, user) for user, acc in Chats[source[1]].alist.iteritems()], reverse = True)
+				ls = sorted([(acc, user) for user, acc in Chats[source[1]].alist.items()], reverse = True)
 				if stype == sBase[1]:
 					answer = AnsBase[11]
 				Message(source[0], self.AnsBase[5] + enumerated_list("%s - %d" % (user, acc) for acc, user in ls), disp)
@@ -74,7 +76,7 @@ class expansion_temp(expansion):
 				answer = self.AnsBase[4]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_set_access(self, stype, source, body, disp):
@@ -85,7 +87,7 @@ class expansion_temp(expansion):
 			else:
 				del Galist[instance]
 			cat_file(self.AccessFile, str(Galist))
-			for conf in Chats.keys():
+			for conf in list(Chats.keys()):
 				for sUser in Chats[conf].get_users():
 					if sUser.source and sUser.source == instance:
 						if access == None:
@@ -99,24 +101,24 @@ class expansion_temp(expansion):
 			body = body.split(None, 1)
 			if len(body) == 2:
 				Nick = body.pop(1)
-				if Chats.has_key(source[1]):
+				if source[1] in Chats:
 					if Chats[source[1]].isHere(Nick):
 						instance = get_source(source[1], Nick)
-				if not locals().has_key("instance"):
+				if "instance" not in locals():
 					instance = (Nick.split())[0].lower()
 					if not isSource(instance):
 						instance = None
 				if instance:
 					access = body.pop(0)
 					if access == chr(33):
-						if Galist.has_key(instance):
+						if instance in Galist:
 							set_access(instance)
 							answer = AnsBase[4]
 						else:
 							answer = self.AnsBase[6] % (Nick)
 					elif isNumber(access):
 						access = int(access)
-						if access in xrange(-1, 9):
+						if access in range(-1, 9):
 							set_access(instance, access)
 							answer = AnsBase[4]
 						else:
@@ -148,7 +150,7 @@ class expansion_temp(expansion):
 					else:
 						sUser.calc_acc()
 
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				body = body.split(None, 1)
 				if len(body) == 2:
@@ -162,15 +164,15 @@ class expansion_temp(expansion):
 					if instance:
 						access = body.pop(0)
 						if access == chr(33):
-							if Chats[source[1]].alist.has_key(instance):
+							if instance in Chats[source[1]].alist:
 								set_access(source[1], instance)
 								answer = AnsBase[4]
 							else:
 								answer = self.AnsBase[6] % (Nick)
-						elif not Galist.has_key(instance):
+						elif instance not in Galist:
 							if isNumber(access):
 								access = int(access)
-								if access in xrange(7):
+								if access in range(7):
 									set_access(source[1], instance, access)
 									answer = AnsBase[4]
 								else:
@@ -190,13 +192,33 @@ class expansion_temp(expansion):
 		Answer(answer, stype, source, disp)
 
 	def load_acclist(self):
-		if initialize_file(self.AccessFile):
-			Galist.update(eval(get_file(self.AccessFile)))
+		if initialize_file(self.AccessFile): # Ensures file exists, possibly creating with default "{}"
+			file_content = get_file(self.AccessFile)
+			if file_content:
+				try:
+					evaluated_content = ast.literal_eval(file_content)
+					if isinstance(evaluated_content, dict):
+						Galist.update(evaluated_content)
+					else:
+						Print(f"Error: Access file {self.AccessFile} has invalid format. Expected a dict.", COLOR_RED)
+				except (ValueError, SyntaxError) as e:
+					Print(f"Error loading access file {self.AccessFile}: {e}. Not updating Galist.", COLOR_RED)
+			# If file is empty or unparseable, Galist remains as is (presumably empty or from previous state)
 
 	def load_local_acclist(self, conf):
 		filename = chat_file(conf, self.ChatAccessFile)
-		if initialize_file(filename):
-			Chats[conf].alist.update(eval(get_file(filename)))
+		if initialize_file(filename): # Ensures file exists, possibly creating with default "{}"
+			file_content = get_file(filename)
+			if file_content:
+				try:
+					evaluated_content = ast.literal_eval(file_content)
+					if isinstance(evaluated_content, dict):
+						Chats[conf].alist.update(evaluated_content)
+					else:
+						Print(f"Error: Local access file {filename} for chat {conf} has invalid format. Expected a dict.", COLOR_RED)
+				except (ValueError, SyntaxError) as e:
+					Print(f"Error loading local access file {filename} for chat {conf}: {e}. Not updating alist.", COLOR_RED)
+			# If file is empty or unparseable, alist remains as is
 
 	commands = (
 		(command_get_access, "access", 1,),

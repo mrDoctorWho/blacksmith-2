@@ -25,7 +25,7 @@ class expansion_temp(expansion):
 					defs = db.fetchall()
 				if defs:
 					ls.append(self.AnsBase[0] % (len(defs), enumerated_list([name[0].title() for name in defs])))
-				if Chats.has_key(source[1]):
+				if source[1] in Chats:
 					with database(cefile(chat_file(source[1], self.ChatBase))) as db:
 						db("select name from wtf order by name")
 						defs = db.fetchall()
@@ -48,7 +48,7 @@ class expansion_temp(expansion):
 							numb = data.count(body)
 							if numb or body in name or name in body:
 								ls.append(self.AnsBase[3] % (name.title(), numb))
-					if Chats.has_key(source[1]):
+					if source[1] in Chats:
 						with database(cefile(chat_file(source[1], self.ChatBase))) as db:
 							db("select name, data from wtf order by name")
 							desc = db.fetchall()
@@ -71,7 +71,7 @@ class expansion_temp(expansion):
 				if desc:
 					name, data, nick, date = desc
 					answer = self.AnsBase[5] % (name.title(), data, nick, date)
-				if Chats.has_key(source[1]) and not answer:
+				if source[1] in Chats and not answer:
 					with database(cefile(chat_file(source[1], self.ChatBase))) as db:
 						db("select * from wtf where name=?", (body,))
 						desc = db.fetchone()
@@ -87,7 +87,7 @@ class expansion_temp(expansion):
 				defs = db.fetchall()
 			if defs:
 				ls.append(self.AnsBase[7] % len(defs))
-			if Chats.has_key(source[1]):
+			if source[1] in Chats:
 				with database(cefile(chat_file(source[1], self.ChatBase))) as db:
 					db("select name from wtf order by name")
 					defs = db.fetchall()
@@ -138,7 +138,7 @@ class expansion_temp(expansion):
 						answer = AnsBase[2]
 				else:
 					answer = AnsBase[10]
-			elif Chats.has_key(source[1]):
+			elif source[1] in Chats:
 				if self.sep in body:
 					ls = body.split(self.sep, 1)
 					name, data = ls

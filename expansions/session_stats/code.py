@@ -14,7 +14,7 @@ class expansion_temp(expansion):
 		if body:
 			if isNumber(body):
 				Number = (int(body) - 1)
-				if Number in xrange(len(VarCache["errors"])):
+				if Number in range(len(VarCache["errors"])):
 					try:
 						exc = VarCache["errors"][Number]
 						if OSList[0]:
@@ -31,7 +31,7 @@ class expansion_temp(expansion):
 				answer = AnsBase[30]
 		else:
 			answer = self.AnsBase[22] % len(VarCache["errors"])
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_botup(self, stype, source, body, disp):
@@ -49,13 +49,13 @@ class expansion_temp(expansion):
 		answer += self.AnsBase[1] % (Time2Text(NowTime - Info["up"]))
 		if len(Info["alls"]):
 			answer += self.AnsBase[2] % (Time2Text(NowTime - Info["sess"]))
-		answer += self.AnsBase[7] % len(Chats.keys())
+		answer += self.AnsBase[7] % len(list(Chats.keys()))
 		answer += self.AnsBase[3] % (Info["msg"])
 		answer += self.AnsBase[4] % (Info["cmd"])
 		answer += self.AnsBase[5] % (Info["prs"], Info["iq"])
 		answer += self.AnsBase[6] % (Info["omsg"], Info["outiq"])
 		Number = itypes.Number()
-		for conf in Chats.itervalues():
+		for conf in Chats.values():
 			Number.plus(len(conf.get_nicks()))
 		answer += self.AnsBase[8] % (int(Number))
 		answer += self.AnsBase[10] % (len(VarCache["errors"]), Info["errors"])
@@ -70,13 +70,13 @@ class expansion_temp(expansion):
 	def command_stats(self, stype, source, body, disp):
 		if body:
 			cmd = body.lower()
-			if Cmds.has_key(cmd):
+			if cmd in Cmds:
 				answer = self.AnsBase[18] % (cmd, Cmds[cmd].numb, len(Cmds[cmd].desc))
 			else:
 				answer = AnsBase[6]
 		else:
 			ls = []
-			for cmd in Cmds.itervalues():
+			for cmd in Cmds.values():
 				used = cmd.numb._int()
 				if used:
 					ls.append((used, len(cmd.desc), cmd.name))

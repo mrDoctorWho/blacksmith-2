@@ -11,7 +11,7 @@ class expansion_temp(expansion):
 		expansion.__init__(self, name)
 
 	def command_subject(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				Chat = Chats[source[1]]
 				if Chat.isModer or getattr(Chat.get_user(Chat.nick), "role", (None,)*2)[1] == aRoles[9]:
@@ -22,13 +22,13 @@ class expansion_temp(expansion):
 				answer = AnsBase[1]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	sep = chr(47)
 
 	def command_ban(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				if Chats[source[1]].isModer:
 					if enough_access(source[1], source[2], 6) or getattr(Chats[source[1]].get_user(get_nick(source[1])), "role", (aRoles[5],))[0] != aRoles[5]:
@@ -56,11 +56,11 @@ class expansion_temp(expansion):
 				answer = AnsBase[1]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_none(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				if Chats[source[1]].isModer:
 					if enough_access(source[1], source[2], 6) or getattr(Chats[source[1]].get_user(get_nick(source[1])), "role", (aRoles[5],))[0] != aRoles[5]:
@@ -88,11 +88,11 @@ class expansion_temp(expansion):
 				answer = AnsBase[1]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_member(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				if Chats[source[1]].isModer:
 					if enough_access(source[1], source[2], 6) or getattr(Chats[source[1]].get_user(get_nick(source[1])), "role", (aRoles[5],))[0] != aRoles[5]:
@@ -120,11 +120,11 @@ class expansion_temp(expansion):
 				answer = AnsBase[1]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_admin(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				if getattr(Chats[source[1]].get_user(get_nick(source[1])), "role", (aRoles[5],))[0] == aRoles[5]:
 					body = body.split(self.sep, 1)
@@ -149,11 +149,11 @@ class expansion_temp(expansion):
 				answer = AnsBase[1]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_owner(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				if getattr(Chats[source[1]].get_user(get_nick(source[1])), "role", (aRoles[5],))[0] == aRoles[5]:
 					body = body.split(self.sep, 1)
@@ -178,11 +178,11 @@ class expansion_temp(expansion):
 				answer = AnsBase[1]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_kick(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				aRole = getattr(Chats[source[1]].get_user(get_nick(source[1])), "role", (aRoles[5], None))
 				if Chats[source[1]].isModer or aRole[1] == aRoles[9]:
@@ -209,11 +209,11 @@ class expansion_temp(expansion):
 				answer = AnsBase[1]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_visitor(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				aRole = getattr(Chats[source[1]].get_user(get_nick(source[1])), "role", (aRoles[5], None))
 				if Chats[source[1]].isModer or aRole[1] == aRoles[9]:
@@ -240,11 +240,11 @@ class expansion_temp(expansion):
 				answer = AnsBase[1]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_participant(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				aRole = getattr(Chats[source[1]].get_user(get_nick(source[1])), "role", (aRoles[5], None))
 				if Chats[source[1]].isModer or aRole[1] == aRoles[9]:
@@ -267,11 +267,11 @@ class expansion_temp(expansion):
 				answer = AnsBase[1]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	def command_moder(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				if Chats[source[1]].isModer:
 					body = body.split(self.sep, 1)
@@ -290,7 +290,7 @@ class expansion_temp(expansion):
 				answer = AnsBase[1]
 		else:
 			answer = AnsBase[0]
-		if locals().has_key(sBase[6]):
+		if sBase[6] in locals():
 			Answer(answer, stype, source, disp)
 
 	PerfDesc = {"done": 0, "fail": 0}
@@ -302,8 +302,8 @@ class expansion_temp(expansion):
 			desc["fail"] += 1
 
 	def calcPerformance(self, desc):
-		cl = len(Chats.keys())
-		for x in xrange(60):
+		cl = len(list(Chats.keys()))
+		for x in range(60):
 			sleep(0.2)
 			if cl <= sum(desc.values()):
 				break
@@ -318,7 +318,7 @@ class expansion_temp(expansion):
 		return answer
 
 	def command_fullban(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				body = body.split(self.sep, 1)
 				nick = (body.pop(0)).strip()
@@ -334,7 +334,7 @@ class expansion_temp(expansion):
 					else:
 						body = "%s/%s" % (get_nick(source[1]), source[2])
 					desc = self.PerfDesc.copy()
-					for conf in Chats.itervalues():
+					for conf in Chats.values():
 						conf.outcast(jid, body, (self.HandleFB, {"desc": desc}))
 					answer = self.calcPerformance(desc)
 				else:
@@ -346,7 +346,7 @@ class expansion_temp(expansion):
 		Answer(answer, stype, source, disp)
 
 	def command_fullunban(self, stype, source, body, disp):
-		if Chats.has_key(source[1]):
+		if source[1] in Chats:
 			if body:
 				body = body.split(self.sep, 1)
 				nick = (body.pop(0)).strip()
@@ -358,7 +358,7 @@ class expansion_temp(expansion):
 					jid = None
 				if jid:
 					desc = self.PerfDesc.copy()
-					for conf in Chats.itervalues():
+					for conf in Chats.values():
 						conf.none(jid, handler = (self.HandleFB, {"desc": desc}))
 					answer = self.calcPerformance(desc)
 				else:
