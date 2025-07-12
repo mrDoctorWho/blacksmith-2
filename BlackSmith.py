@@ -8,7 +8,7 @@
 
 # imports
 
-from types import GeneratorType # NoneType not used directly in Py3
+from types import InstanceType, GeneratorType # NoneType not used directly in Py3
 from traceback import print_exc as print_exception_traceback
 from random import shuffle, randrange, choice
 from re import compile as regex_compile
@@ -87,7 +87,7 @@ XEPs = set(IqXEPs + (
 	xmpp.NS_ROSTER, xmpp.NS_RECEIPTS
 ))
 
-isJID = regex_compile("^.+?@[\w-]+?\.[\.\w-]+?$", 32)
+isJID = regex_compile(r"^.+?@[\w-]+?\.[\.\w-]+?$", 32) # Use raw string for regex
 
 VarCache = { # Keep original names for now
 	"idle": 0.24, "alive": True, "errors": [],
@@ -1185,7 +1185,7 @@ class Web(object):
 			return content_bytes.decode('utf-8', 'replace') # Fallback
 
 
-def get_text(body_str, start_str, end_str, content_regex_str = "(?:.|\s)+"):
+def get_text(body_str, start_str, end_str, content_regex_str = r"(?:.|\s)+"):
 	flags = re.S | re.I
 	compiled_regex = regex_compile(f"{start_str}({content_regex_str}?){end_str}", flags)
 	match_obj = compiled_regex.search(body_str)

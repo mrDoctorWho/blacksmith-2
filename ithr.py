@@ -666,14 +666,10 @@ class MainMonitoringThread(CustomThread): # Renamed MainThread
 	def kill(self): # Main thread cannot be killed this way
 		pass
 
-	def _exit_ KThread(self, target_callable=None, thread_name=None, args_tuple=(), kwargs_dict=None): # Renamed KThread
-    # ... (KillableThread implementation as above) ...
-
-class CustomTimerThread(CustomThread): # Renamed Timer
-    # ... (CustomTimerThread implementation as above) ...
-
-class MainMonitoringThread(CustomThread): # Renamed MainThread
-    # ... (MainMonitoringThread implementation as above) ...
+	# The malformed _exit_KThread method definition was here and is now removed.
+	# It appeared to be a copy-paste error from another class.
+	# The main thread's exit logic is handled by the _main_thread_exit_function (not shown)
+	# which is assigned to SHUTDOWN_HOOK_MAIN_THREAD.
 
 def get_next_non_daemon_thread(): # Renamed PickSomeNonDaemonThread
 	for thread_obj in get_all_custom_threads(): # Renamed enumerate, thr
