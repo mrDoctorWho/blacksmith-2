@@ -8,7 +8,7 @@
 
 # imports
 
-from types import InstanceType, GeneratorType # NoneType not used directly in Py3
+from types import GeneratorType # NoneType not used directly in Py3
 from traceback import print_exc as print_exception_traceback
 from random import shuffle, randrange, choice
 from re import compile as regex_compile

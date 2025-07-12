@@ -1,10 +1,10 @@
-# $Id: __init__.py, v1.10 2013/10/21 alkorgun Exp $
+# $Id$
 
 """
 All features of xmpppy library contained within separate modules.
 At present there are modules:
 simplexml - XML handling routines
-protocol - jabber-objects (I.e. JID and different stanzas and sub-stanzas) handling routines.
+protocol - XMPP-objects (I.e. JID and different stanzas and sub-stanzas) handling routines.
 debug - Jacob Lundquist's debugging module. Very handy if you like colored debug.
 auth - Non-SASL and SASL stuff. You will need it to auth as a client or transport.
 transports - low level connection handling. TCP and TLS currently. HTTP support planned.
@@ -23,20 +23,9 @@ either in instance of PlugIn or in owner's instance. This is considered unhandy
 and there are plans to port 'Session' class from xmppd.py project for storing all
 session-related info. Though if you are not accessing instances variables directly
 and use only methods for access all values you should not have any problems.
+
 """
 
-import auth
-import browser
-import commands
-import debug
-import dispatcher
-import features
-import filetransfer
-import plugin
-import protocol
-import roster
-import simplexml
-import transports
-
-from client import *
-from protocol import *
+from . import simplexml,protocol,debug,auth,transports,roster,dispatcher,features,browser,filetransfer,commands
+from .client import *
+from .protocol import *
